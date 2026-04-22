@@ -2,7 +2,8 @@
 (function (root) {
   'use strict';
 
-  const POLL_INTERVAL_MS = 3000;
+  const POLL_INTERVAL_MS = 5000;   // 5秒（GASクォータ削減、体感は許容範囲）
+  const ADMIN_SESSION_MS = 30 * 60 * 1000; // 管理者セッション有効期限 30分
 
   const App = {
     // 状態
@@ -58,18 +59,30 @@
 
     async loadState() {
       let state = null;
+      let online = false;
       if (root.Api.hasBackend()) {
         try {
           const boot = await root.Api.getBootstrap();
           if (boot && boot.state) state = boot.state;
           if (boot && boot.months) App._serverMonths = boot.months;
+          online = !!boot;
         } catch (e) {
           console.warn('bootstrap failed, falling back to local', e);
+          App._setSyncIndicator(false, 'オフライン（ローカル表示のみ）');
         }
       }
       if (!state) state = root.Storage.loadState();
       if (!state) state = { version: 0, lastUpdated: new Date().toISOString(), companies: [], assignments: [] };
       App.state = state;
+      App._onlineAtBoot = online;
+    },
+
+    _setSyncIndicator(isOnline, label) {
+      const si = document.getElementById('sync-indicator');
+      if (!si) return;
+      if (isOnline) si.classList.remove('offline'); else si.classList.add('offline');
+      const lbl = si.querySelector('.label');
+      if (lbl) lbl.textContent = label || (isOnline ? '接続中' : 'オフライン');
     },
 
     saveLocal() {
@@ -412,7 +425,7 @@
     },
 
     async unconfirmDate() {
-      if (!root.Storage.isAdmin()) { App.toast('解除には管理者ログインが必要です', 'warn'); return; }
+      if (!App.isAdminActive()) { App.toast('解除には管理者ログインが必要です', 'warn'); return; }
       const [y, m] = App.currentMonthKey.split('-').map(Number);
       const a = App.getAssignment(App.currentCityId, y, m);
       if (!a) return;
@@ -446,7 +459,7 @@
     },
 
     removeCompany(companyId) {
-      if (!root.Storage.isAdmin()) { App.toast('削除には管理者ログインが必要です', 'warn'); return; }
+      if (!App.isAdminActive()) { App.toast('削除には管理者ログインが必要です', 'warn'); return; }
       App.state.companies = App.state.companies.filter(c => c.id !== companyId);
       // 各assignmentのstatuses もクリーンアップ
       App.state.assignments.forEach(a => {
@@ -463,19 +476,32 @@
       App.pollTimer = setInterval(async () => {
         try {
           const res = await root.Api.pollState(App.state.lastUpdated, App.state.version);
-          const si = document.getElementById('sync-indicator');
-          if (si) { si.classList.remove('offline'); si.querySelector('.label').textContent = '接続中'; }
-          if (res && res.state && (res.state.version || 0) > (App.state.version || 0)) {
+          App._setSyncIndicator(true, '接続中');
+          // changed=false の軽量レスポンスは state を含まない
+          if (res && res.changed && res.state && (res.state.version || 0) > (App.state.version || 0)) {
             App.state = res.state;
             App.saveLocal();
             App.renderAll();
             App.toast('他のユーザーが更新しました', 'success');
           }
         } catch (e) {
-          const si = document.getElementById('sync-indicator');
-          if (si) { si.classList.add('offline'); si.querySelector('.label').textContent = 'オフライン'; }
+          App._setSyncIndicator(false, 'オフライン');
         }
       }, POLL_INTERVAL_MS);
+    },
+
+    // 管理者セッションの有効性チェック（30分で自動失効）
+    isAdminActive() {
+      if (!root.Storage.isAdmin()) return false;
+      const setAt = +sessionStorage.getItem('powerup-kenshu:adminSetAt') || 0;
+      if (!setAt) return false;
+      if (Date.now() - setAt > ADMIN_SESSION_MS) {
+        root.Storage.setAdmin(false);
+        sessionStorage.removeItem('powerup-kenshu:adminSetAt');
+        App.toast('管理者セッションが切れました', 'warn');
+        return false;
+      }
+      return true;
     },
 
     // ------- イベントバインド -------
@@ -549,15 +575,16 @@
       });
       document.getElementById('btn-admin-login').addEventListener('click', () => {
         const pw = document.getElementById('input-admin-pw').value;
-        if (pw && pw.length >= 4) {
+        if (pw && pw.length >= 1) {
           // パスワードはサーバー検証するため sessionStorage に保持
           root.Storage.setAdmin(true, pw);
+          sessionStorage.setItem('powerup-kenshu:adminSetAt', String(Date.now()));
           App.closeModal('modal-admin');
           document.getElementById('input-admin-pw').value = '';
-          App.toast('管理者モードON（サーバー側で操作時に検証されます）', 'success');
+          App.toast('管理者モードON（30分で自動失効）', 'success');
           App.renderAll();
         } else {
-          App.toast('パスワードは4文字以上', 'warn');
+          App.toast('パスワードを入力してください', 'warn');
         }
       });
 

@@ -34,7 +34,8 @@
     async getBootstrap() { return getJson('bootstrap'); },
 
     async pollState(since, sinceVersion) {
-      const extra = {};
+      // 変更があるかだけを問い合わせる軽量呼び出し
+      const extra = { lite: '1' };
       if (since) extra.since = since;
       if (sinceVersion !== undefined && sinceVersion !== null) extra.sinceVersion = String(sinceVersion);
       return getJson('state', extra);

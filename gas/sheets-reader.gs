@@ -44,6 +44,15 @@ const DEFAULT_OTHER_SHEET_2027 = '1fZovD5c-Pn3eggwU_kYrqEF_d_lOHuOkqHEnpnwRRck';
 
 function buildMonthsForYear(fiscalYear) {
   if (fiscalYear !== 2026) throw new Error('fiscalYear=2026のみ対応');
+
+  // CacheService で6時間キャッシュ（他研修スプシへの読み取り回数を大幅削減）
+  const cache = CacheService.getScriptCache();
+  const cacheKey = 'months_' + fiscalYear + '_v3';
+  const cached = cache.get(cacheKey);
+  if (cached) {
+    try { return JSON.parse(cached); } catch (e) { /* fallthrough */ }
+  }
+
   const props = PropertiesService.getScriptProperties();
   const id2026 = props.getProperty('OTHER_SHEET_2026') || DEFAULT_OTHER_SHEET_2026;
   const id2027 = props.getProperty('OTHER_SHEET_2027') || DEFAULT_OTHER_SHEET_2027;
@@ -85,6 +94,11 @@ function buildMonthsForYear(fiscalYear) {
     }
     months.push({ year: y, month: m, ozawaRange: range, days });
   }
+  // キャッシュ保存（6時間）。サイズ上限100KBに注意
+  try {
+    const serialized = JSON.stringify(months);
+    if (serialized.length < 100000) cache.put(cacheKey, serialized, 21600);
+  } catch (e) { Logger.log('cache put failed: ' + e.message); }
   return months;
 }
 

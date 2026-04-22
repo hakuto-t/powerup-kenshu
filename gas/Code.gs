@@ -16,6 +16,10 @@
  *   ADMIN_PASSWORD       ... 互換：平文の管理者パスワード（HASH未設定時のフォールバック）
  */
 
+// 入力バリデーション用ホワイトリスト
+const VALID_CITY_IDS = ['HL1', 'HL2', 'SZ', 'YH', 'UT'];
+const VALID_STATUSES = ['OK', 'MAYBE', 'NG', 'UNKNOWN'];
+
 function doGet(e) {
   const action = (e.parameter.action || 'bootstrap');
   try {
@@ -25,7 +29,8 @@ function doGet(e) {
     else throw new Error('unknown action: ' + action);
     return jsonResponse(data);
   } catch (err) {
-    return jsonResponse({ ok: false, error: err.message });
+    Logger.log('doGet error: ' + err.stack);
+    return jsonResponse({ ok: false, error: safeErrMsg(err) });
   }
 }
 
@@ -43,14 +48,27 @@ function doPost(e) {
       else if (action === 'updateStatus') data = updateStatusHandler(body);
       else if (action === 'confirm') data = confirmHandler(body);
       else if (action === 'removeCompany') data = removeCompanyHandler(body);
+      else if (action === 'setPassword') data = setPasswordHandler(body);
       else throw new Error('unknown action: ' + action);
     } finally {
       try { lock.releaseLock(); } catch (e) {}
     }
     return jsonResponse(data);
   } catch (err) {
-    return jsonResponse({ ok: false, error: err.message });
+    Logger.log('doPost error: ' + err.stack);
+    return jsonResponse({ ok: false, error: safeErrMsg(err) });
   }
+}
+
+/**
+ * エラーメッセージを「認証系」「検証系」だけ残してそれ以外は汎用化
+ */
+function safeErrMsg(err) {
+  const msg = String(err && err.message || err);
+  if (/admin auth|admin authentication|認証/i.test(msg)) return msg;
+  if (/不正|invalid|必要|required|範囲|range/i.test(msg)) return msg;
+  if (/unknown action/i.test(msg)) return msg;
+  return 'サーバーエラーが発生しました';
 }
 
 function jsonResponse(obj) {
@@ -80,6 +98,7 @@ function stateHandler(e) {
   const year = +(e.parameter.year || 2026);
   const since = e.parameter.since;
   const sinceVersion = e.parameter.sinceVersion != null ? +e.parameter.sinceVersion : null;
+  const lite = e.parameter.lite === '1';
   const state = loadState(year);
   // version 優先で変更判定（ミリ秒精度に依存しない）
   let changed;
@@ -90,12 +109,20 @@ function stateHandler(e) {
   } else {
     changed = true;
   }
+  // 軽量モード: 変更がない場合は state を含めない（帯域削減・ GAS 実行時間短縮）
+  if (lite && !changed) {
+    return { ok: true, changed: false, lastUpdated: state.lastUpdated, version: state.version || 0 };
+  }
   return { ok: true, state, lastUpdated: state.lastUpdated, version: state.version || 0, changed };
 }
 
 function saveHandler(body) {
   const year = +(body.year || 2026);
   const incoming = body.state || {};
+  if (!incoming || typeof incoming !== 'object') throw new Error('state が必要');
+  // DoS対策：state JSON サイズ制限
+  const size = JSON.stringify(incoming).length;
+  if (size > 500000) throw new Error('state サイズが大きすぎます（' + size + ' bytes）');
   // version 単調増加の保証
   const current = loadState(year);
   incoming.version = Math.max((current.version || 0) + 1, (incoming.version || 0));
@@ -107,12 +134,20 @@ function saveHandler(body) {
 function addCompanyHandler(body) {
   const year = +(body.year || 2026);
   const state = loadState(year);
-  if (!body.company || !body.company.id || !body.company.name) throw new Error('company.id と name が必要');
-  // 重複防止
-  if (state.companies.some(c => c.id === body.company.id)) {
+  const c = body.company;
+  if (!c || typeof c !== 'object') throw new Error('company が必要');
+  if (!c.id || typeof c.id !== 'string' || c.id.length > 100) throw new Error('不正な company.id');
+  if (!c.name || typeof c.name !== 'string' || c.name.length > 200) throw new Error('不正な company.name');
+  // 名前の重複チェック（軽量なスパム対策）
+  if (state.companies.some(x => x.name === c.name)) {
+    return { ok: true, state, duplicated: true, reason: '同名の会社が既に登録されています' };
+  }
+  if (state.companies.some(x => x.id === c.id)) {
     return { ok: true, state, duplicated: true };
   }
-  state.companies.push(body.company);
+  // 規模制限（DoS対策）：会社数100まで
+  if (state.companies.length >= 100) throw new Error('会社数の上限（100社）に達しました');
+  state.companies.push(c);
   state.lastUpdated = new Date().toISOString();
   state.version = (state.version || 0) + 1;
   saveState(year, state);
@@ -137,7 +172,12 @@ function removeCompanyHandler(body) {
 function updateStatusHandler(body) {
   const year = +(body.year || 2026);
   const { companyId, cityId, ym, date, status } = body;
-  if (!companyId || !cityId || !ym || !date) throw new Error('必須パラメータが不足');
+  // 入力バリデーション
+  if (!companyId || typeof companyId !== 'string' || companyId.length > 100) throw new Error('不正な companyId');
+  if (!VALID_CITY_IDS.includes(cityId)) throw new Error('不正な cityId');
+  if (!/^20\d{2}-(0[1-9]|1[0-2])$/.test(ym)) throw new Error('不正な ym 形式');
+  if (!/^20\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(date)) throw new Error('不正な date 形式');
+  if (status && !VALID_STATUSES.includes(status)) throw new Error('不正な status');
   const [y, m] = ym.split('-').map(Number);
   const state = loadState(year);
   let a = state.assignments.find(x => x.cityId === cityId && x.year === y && x.month === m);
@@ -162,7 +202,9 @@ function confirmHandler(body) {
   const year = +(body.year || 2026);
   const { cityId, ym, date, adminPw, unconfirm } = body;
   if (unconfirm && !verifyAdmin(adminPw)) throw new Error('admin auth failed');
-  if (!cityId || !ym) throw new Error('必須パラメータが不足');
+  if (!VALID_CITY_IDS.includes(cityId)) throw new Error('不正な cityId');
+  if (!/^20\d{2}-(0[1-9]|1[0-2])$/.test(ym)) throw new Error('不正な ym 形式');
+  if (date && !/^20\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(date)) throw new Error('不正な date 形式');
   const [y, m] = ym.split('-').map(Number);
   const state = loadState(year);
   let a = state.assignments.find(x => x.cityId === cityId && x.year === y && x.month === m);
@@ -188,6 +230,20 @@ function confirmHandler(body) {
  * ADMIN_PASSWORD_HASH（SHA-256 hex）が設定されていればそれで検証、
  * なければ平文 ADMIN_PASSWORD にフォールバック（非推奨）。
  */
+/**
+ * 現パスワード認証で新パスワードに上書きする API
+ * body: { action: 'setPassword', currentAdminPw, newPw }
+ */
+function setPasswordHandler(body) {
+  if (!verifyAdmin(body.currentAdminPw)) throw new Error('admin auth failed');
+  const newPw = String(body.newPw || '');
+  if (newPw.length < 1) throw new Error('newPw required');
+  const props = PropertiesService.getScriptProperties();
+  props.setProperty('ADMIN_PASSWORD_HASH', sha256Hex(newPw));
+  props.deleteProperty('ADMIN_PASSWORD');
+  return { ok: true, message: 'パスワードを更新しました' };
+}
+
 function verifyAdmin(pw) {
   if (!pw) return false;
   const props = PropertiesService.getScriptProperties();
