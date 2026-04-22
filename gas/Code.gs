@@ -203,13 +203,57 @@ function sha256Hex(s) {
 }
 
 /**
- * セットアップ用：コンソールから実行して、設定したいパスワードのSHA-256 hexを取得。
- * 取得した値を ADMIN_PASSWORD_HASH にコピー、ADMIN_PASSWORD は削除推奨。
+ * 【初回1回だけ実行】
+ * この関数を実行すると：
+ *   1. Google にスコープ承認を求められる → 「許可」で完了
+ *   2. 状態保存スプシを自動生成しIDをスクリプトプロパティに保存
+ *   3. 他研修スプシの読み取り疎通を確認
+ *   4. Web App URL が有効化される
  *
- *   1. エディタのメニュー→実行→関数を選択→ setupPrintAdminHash を実行
- *   2. 実行ログに出た hex 値を「スクリプトプロパティ」→ ADMIN_PASSWORD_HASH に貼付
+ * 実行手順：
+ *   1. 画面上部の関数ドロップダウンで「oneTimeSetup」を選択
+ *   2. ▶ 実行 ボタンをクリック
+ *   3. 権限ダイアログで hakuto.t@... のアカウントを選び「許可」をクリック
+ *      （「確認されていません」警告が出ても、詳細→安全でないページへ進み 許可）
+ *   4. 実行ログに「セットアップ完了」と出れば成功
  */
-function setupPrintAdminHash() {
-  const pw = 'change-me'; // ← ここを設定したいパスワードに変更してから実行
-  Logger.log('ADMIN_PASSWORD_HASH=' + sha256Hex(pw));
+function oneTimeSetup() {
+  const ss = getStateSheet();
+  const ssUrl = ss.getUrl();
+  const ssId = ss.getId();
+
+  // 他研修スプシ疎通確認
+  let monthsCount = 0;
+  try {
+    const months = buildMonthsForYear(2026);
+    monthsCount = months.length;
+  } catch (e) {
+    Logger.log('他研修スプシ読み取りエラー: ' + e.message);
+  }
+
+  // デフォルトの管理者パスワードハッシュを設定（初回のみ、既存は変更しない）
+  const props = PropertiesService.getScriptProperties();
+  if (!props.getProperty('ADMIN_PASSWORD_HASH') && !props.getProperty('ADMIN_PASSWORD')) {
+    const defaultPw = 'admin1234';
+    props.setProperty('ADMIN_PASSWORD_HASH', sha256Hex(defaultPw));
+    Logger.log('デフォルト管理者パスワードを設定: ' + defaultPw + '（後で setAdminPassword で変更可）');
+  }
+
+  Logger.log('=== セットアップ完了 ===');
+  Logger.log('状態保存スプシ: ' + ssUrl);
+  Logger.log('状態保存スプシID: ' + ssId);
+  Logger.log('月データ数（2026年度 11月分+休講1月）: ' + monthsCount);
+  Logger.log('Web App は有効化されました。');
+  return { ok: true, ssUrl, ssId, monthsCount };
+}
+
+/**
+ * 管理者パスワードを変更する（コンソールから実行）
+ *   setAdminPassword の pw をお好みのパスワードに変更 → 実行 → OK
+ */
+function setAdminPassword() {
+  const pw = 'change-me-please'; // ← ここを変更してから実行
+  PropertiesService.getScriptProperties().setProperty('ADMIN_PASSWORD_HASH', sha256Hex(pw));
+  PropertiesService.getScriptProperties().deleteProperty('ADMIN_PASSWORD');
+  Logger.log('管理者パスワードを更新しました');
 }

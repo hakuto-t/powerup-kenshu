@@ -2,8 +2,8 @@
 (function (root) {
   'use strict';
 
-  // GAS Web App URL（自動デプロイ済み）
-  const GAS_URL = 'https://script.google.com/macros/s/AKfycbypIGyiV0mENp2TcMZfiFwnASzNW0FwxefjpGS196tZmRhztUnaGuhjKe8tm0s9k_i0/exec';
+  // GAS Web App URL（個人アカウントでデプロイ済み）
+  const GAS_URL = 'https://script.google.com/macros/s/AKfycbzatRCFDFbBa2y3BnUocOthuS5P0K3jMYH7pc9jt6FZZ9diX2O2oOt8Akam9laFauQw/exec';
   // 年度（翌年度移行時はこの定数のみ変更）
   const FISCAL_YEAR = 2026;
 
