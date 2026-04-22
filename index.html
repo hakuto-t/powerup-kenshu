@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>エスト パワーアップ研修 年間日程調整ツール</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=DM+Sans:wght@400;500;700;900&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="./assets/style.css" />
+</head>
+<body>
+
+<header class="app-header">
+  <div class="W">
+    <div class="app-header-row">
+      <div>
+        <h1>エスト パワーアップ研修 年間日程調整</h1>
+        <div class="sub">2026年度（2026年8月〜2027年7月・全11回）｜講師：小澤さん</div>
+      </div>
+      <div class="app-header-actions">
+        <div id="sync-indicator" class="sync-indicator" title="リアルタイム同期">
+          <span class="dot"></span><span class="label">接続中</span>
+        </div>
+        <button id="btn-add-company" class="btn btn-primary">＋ 自分の会社を追加</button>
+        <button id="btn-export-line" class="btn">LINE用コピー</button>
+        <button id="btn-export-pdf" class="btn">PDF出力</button>
+        <button id="btn-admin" class="btn btn-ghost" title="管理者ログイン">⚙</button>
+      </div>
+    </div>
+    <div class="app-progress">
+      <div class="progress-bar"><div id="progress-fill" class="progress-fill" style="width:0%"></div></div>
+      <div class="progress-text"><span id="progress-done">0</span> / 11 確定</div>
+    </div>
+  </div>
+</header>
+
+<main class="W">
+
+  <nav class="city-tabs" id="city-tabs" role="tablist" aria-label="都市切替">
+    <!-- 都市タブはJSでレンダリング -->
+  </nav>
+
+  <section class="month-section">
+    <div class="month-nav">
+      <button class="btn btn-ghost" id="btn-prev-month">◀</button>
+      <h2 id="month-label">2026年8月</h2>
+      <button class="btn btn-ghost" id="btn-next-month">▶</button>
+      <div class="month-jump" id="month-jump"><!-- 11ヶ月分のピル --></div>
+    </div>
+
+    <div class="calendar-layout">
+      <div class="calendar-main">
+        <div id="calendar" class="calendar-grid" aria-label="月間カレンダー">
+          <!-- JSでレンダリング -->
+        </div>
+        <div class="calendar-legend">
+          <span class="lg-item"><span class="dot dot-ok"></span>○参加可</span>
+          <span class="lg-item"><span class="dot dot-maybe"></span>△調整可</span>
+          <span class="lg-item"><span class="dot dot-ng"></span>×不可</span>
+          <span class="lg-item">🔒他都市先約</span>
+          <span class="lg-item">★最小譲歩で成立</span>
+          <span class="lg-item">✨小澤希望達成</span>
+          <span class="lg-item">⚠️連日禁止違反</span>
+        </div>
+      </div>
+
+      <aside id="side-panel" class="side-panel">
+        <div class="sp-empty">
+          <p>候補日セルをクリックすると、参加状況・譲歩提案・小澤希望達成度が表示されます。</p>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <section class="companies-section">
+    <div class="B">
+      <h3>参加会社一覧</h3>
+      <div class="cn">行をクリックすると、その会社の全候補日の○△×を編集できます。</div>
+      <div id="companies-table" class="companies-table">
+        <!-- JSでレンダリング -->
+      </div>
+    </div>
+  </section>
+
+  <section class="minimap-section">
+    <div class="B">
+      <h3>年間確定スケジュール</h3>
+      <div class="cn">横軸＝月（2026年8月〜2027年7月、2月除く全11ヶ月）、縦軸＝5都市。各マスに確定した研修日（月/日と曜日）が入ります。未定マスは「—」、2月は「休講」。</div>
+      <div id="year-minimap" class="year-minimap">
+        <!-- JSでレンダリング -->
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- モーダル：会社追加 -->
+<div id="modal-add-company" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="modal-card">
+    <button class="modal-close" data-modal-close aria-label="閉じる">×</button>
+    <h3>会社を追加</h3>
+
+    <div id="preset-section" class="modal-section hidden">
+      <div class="modal-section-title">プリセットから選ぶ（複数可）</div>
+      <div id="preset-list" class="preset-list"></div>
+    </div>
+
+    <div class="modal-section">
+      <div class="modal-section-title">新しく入力して追加</div>
+      <label>会社名<input type="text" id="input-company-name" placeholder="例：貴社の正式名称" /></label>
+    </div>
+
+    <div class="modal-section">
+      <div class="modal-section-title">参加する都市</div>
+      <div id="input-company-cities" class="chip-group chip-group-lg"></div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-modal-close>キャンセル</button>
+      <button class="btn btn-primary" id="btn-company-save">追加する</button>
+    </div>
+  </div>
+</div>
+
+<!-- モーダル：管理者ログイン -->
+<div id="modal-admin" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="modal-card modal-sm">
+    <button class="modal-close" data-modal-close aria-label="閉じる">×</button>
+    <h3>管理者ログイン</h3>
+    <label>パスワード<input type="password" id="input-admin-pw" /></label>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-modal-close>キャンセル</button>
+      <button class="btn btn-primary" id="btn-admin-login">ログイン</button>
+    </div>
+  </div>
+</div>
+
+<!-- 通知トースト -->
+<div id="toast-root" class="toast-root"></div>
+
+<!-- 外部ライブラリ -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<!-- アプリモジュール -->
+<script src="./assets/storage.js"></script>
+<script src="./assets/api.js"></script>
+<script src="./assets/scheduler.js"></script>
+<script src="./assets/ui-calendar.js"></script>
+<script src="./assets/ui-sidepanel.js"></script>
+<script src="./assets/ui-company-entry.js"></script>
+<script src="./assets/export-pdf.js"></script>
+<script src="./assets/export-line.js"></script>
+<script src="./assets/app.js"></script>
+</body>
+</html>

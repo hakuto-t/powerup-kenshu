@@ -1,0 +1,35 @@
+# macOS / Windows
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*~
+
+# Node (あれば)
+node_modules/
+npm-debug.log*
+.npm/
+
+# Build artifacts
+dist/
+build/
+
+# Local settings / secrets
+*.local
+.env
+.env.*
+
+# Local state / logs
+logs/
+*.log
+
+# クライアント側で誤ってローカル状態を commit しないように
+*-state-local.json
+
+# Google Apps Script clasp
+.clasp.json
+.clasprc.json

@@ -1,0 +1,31 @@
+{
+  "hard": {
+    "sameDayOverlapBan": true,
+    "consecutiveDayBanDefault": true,
+    "consecutiveDayExceptions": [
+      ["HL1", "SZ"], ["HL2", "SZ"], ["HL1", "HL2"]
+    ],
+    "utNonAdjacentWithHamamatsuShizuoka": true
+  },
+  "soft": {
+    "S1_HL1_HL2_consecutive": 10,
+    "S2_YH_UT_sameWeek": 8,
+    "S3_HamaSZ_sameWeek": 8,
+    "S4_UT_gap1_YH": 20,
+    "S5_HamaSZ_consecutive_or_gap1": 20,
+    "S6_geo_close": 5,
+    "S7_other_training_per_item": -3,
+    "S8_weekend_or_holiday": -5,
+    "w_participation_ok": 10,
+    "w_participation_maybe": 3,
+    "w_participation_ng": -20
+  },
+  "regionDistance": {
+    "hamamatsu-shizuoka": "close",
+    "shizuoka-kanagawa": "mid",
+    "kanagawa-utsunomiya": "mid",
+    "hamamatsu-kanagawa": "far",
+    "shizuoka-utsunomiya": "far",
+    "hamamatsu-utsunomiya": "very_far"
+  }
+}

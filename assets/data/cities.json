@@ -1,0 +1,9 @@
+{
+  "cities": [
+    { "id": "HL1", "name": "浜松L1", "fullName": "浜松（レベル1）", "color": "#0f4c5c", "geoOrder": 1, "region": "hamamatsu" },
+    { "id": "HL2", "name": "浜松L2", "fullName": "浜松（レベル2）", "color": "#0891b2", "geoOrder": 2, "region": "hamamatsu" },
+    { "id": "SZ",  "name": "静岡",   "fullName": "静岡",               "color": "#e8b931", "geoOrder": 3, "region": "shizuoka" },
+    { "id": "YH",  "name": "横浜",   "fullName": "横浜",               "color": "#7c3aed", "geoOrder": 4, "region": "kanagawa" },
+    { "id": "UT",  "name": "栃木",   "fullName": "栃木（宇都宮）",     "color": "#dc2626", "geoOrder": 5, "region": "utsunomiya" }
+  ]
+}

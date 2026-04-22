@@ -1,0 +1,22 @@
+{
+  "version": 3,
+  "lastUpdated": "2026-04-23T10:00:00+09:00",
+  "fiscalYear": 2026,
+  "companies": [
+    { "id": "co_sample_A", "name": "A建設株式会社", "shortName": "A建設", "cityParticipation": ["HL1", "HL2", "SZ"], "addedAt": "2026-04-22T09:00:00+09:00" },
+    { "id": "co_sample_B", "name": "B工務店", "shortName": "B工務", "cityParticipation": ["HL1", "HL2", "SZ", "YH"], "addedAt": "2026-04-22T10:00:00+09:00" },
+    { "id": "co_sample_C", "name": "C住建", "shortName": "C住建", "cityParticipation": ["YH", "UT"], "addedAt": "2026-04-22T11:00:00+09:00" }
+  ],
+  "assignments": [
+    {
+      "cityId": "HL1", "year": 2026, "month": 8,
+      "selectedDate": null, "confirmed": false,
+      "statuses": [
+        { "companyId": "co_sample_A", "date": "2026-08-18", "status": "OK", "updatedAt": "2026-04-22T12:00:00+09:00" },
+        { "companyId": "co_sample_A", "date": "2026-08-24", "status": "MAYBE", "note": "決算準備あり", "updatedAt": "2026-04-22T12:01:00+09:00" },
+        { "companyId": "co_sample_B", "date": "2026-08-18", "status": "OK", "updatedAt": "2026-04-22T13:00:00+09:00" },
+        { "companyId": "co_sample_B", "date": "2026-08-24", "status": "NG", "note": "社長会議", "updatedAt": "2026-04-22T13:01:00+09:00" }
+      ]
+    }
+  ]
+}
