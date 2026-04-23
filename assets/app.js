@@ -178,6 +178,10 @@
         btn.addEventListener('click', () => {
           App.currentCityId = btn.dataset.city;
           App.selectedDate = null;
+          // 都市タブを切り替えたら、参加会社一覧もその都市だけ展開
+          if (root.UICompanyEntry && root.UICompanyEntry.setCurrentCityForCollapse) {
+            root.UICompanyEntry.setCurrentCityForCollapse(App.currentCityId);
+          }
           App.renderAll();
         });
       });
@@ -249,13 +253,14 @@
       // サイドパネル
       App.renderSidePanel();
 
-      // 会社テーブル
+      // 会社テーブル（都市別アコーディオン）
       UICompanyEntry.renderCompaniesTable(document.getElementById('companies-table'), {
         companies: App.state.companies,
         cities: App.cities,
         assignments: App.state.assignments,
         isAdmin: root.Storage.isAdmin(),
         currentMonth: monthData,
+        currentCityId: App.currentCityId,
         onStatusToggle: (companyId, cityId, date, next) => App.updateStatus(companyId, cityId, date, next),
         onRemove: (companyId) => App.removeCompany(companyId),
       });

@@ -338,6 +338,86 @@ main .btn-primary:hover { background: var(--pri2); }
 }
 .companies-table .row-controls button:hover { color: var(--r); }
 
+/* === 都市別アコーディオン（参加会社一覧） === */
+.city-group-toolbar {
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  padding: 8px 2px 12px;
+}
+.btn-tiny {
+  font-size: 0.82rem; padding: 5px 11px; border-radius: 20px;
+  border: 1px solid var(--border); background: #fff; color: var(--tx);
+  cursor: pointer; transition: all .15s;
+}
+.btn-tiny:hover { background: var(--bg2); border-color: var(--pri2); color: var(--pri); }
+.btn-tiny-primary { background: var(--pri); color: #fff; border-color: var(--pri); }
+.btn-tiny-primary:hover { background: var(--pri2); border-color: var(--pri2); color: #fff; }
+.toolbar-hint { font-size: 0.8rem; color: var(--tx3); margin-left: 4px; }
+
+.city-groups { display: flex; flex-direction: column; gap: 10px; }
+.city-group {
+  border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+  background: #fff; transition: border-color .15s;
+}
+.city-group[open] { border-color: var(--pri2); box-shadow: 0 2px 8px rgba(8,145,178,0.08); }
+.city-group.is-current { border-color: var(--pri); }
+.city-group.is-current[open] { box-shadow: 0 3px 12px rgba(15,76,92,0.15); }
+
+.city-group-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px; cursor: pointer; list-style: none;
+  border-left: 4px solid; user-select: none;
+  transition: background .15s;
+}
+.city-group-head::-webkit-details-marker { display: none; }
+.city-group-head:hover { background: var(--bg2); }
+.city-group[open] .city-group-head { background: #f0f9ff; border-bottom: 1px solid var(--border); }
+
+.cg-chev {
+  display: inline-block; font-size: 0.75rem; color: var(--tx3);
+  transition: transform .2s; width: 14px;
+}
+.city-group[open] .cg-chev { transform: rotate(90deg); }
+.cg-dot { width: 12px; height: 12px; border-radius: 50%; flex: 0 0 auto; }
+.cg-name { font-weight: 700; font-size: 1.02rem; color: var(--tx); }
+.cg-count {
+  background: var(--bg2); color: var(--tx2); font-size: 0.82rem; font-weight: 600;
+  padding: 2px 10px; border-radius: 20px;
+}
+.cg-progress {
+  font-size: 0.8rem; color: var(--tx3); margin-left: auto;
+}
+.cg-tag {
+  background: var(--pri); color: #fff; font-size: 0.72rem; font-weight: 700;
+  padding: 3px 10px; border-radius: 20px; letter-spacing: 0.02em;
+}
+
+.city-group-body { padding: 8px 14px 14px; overflow-x: auto; }
+.city-group-body table { width: 100%; border-collapse: collapse; font-size: .84rem; }
+.city-group-body th, .city-group-body td {
+  padding: 6px 4px; text-align: center; border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.city-group-body td.status-picker-cell { padding: 4px 2px; }
+.city-group-body th {
+  font-size: .7rem; text-transform: uppercase; color: var(--tx3); font-weight: 500;
+  background: var(--bg);
+}
+.city-group-body th.col-company, .city-group-body td.col-company {
+  text-align: left; font-weight: 600; min-width: 140px;
+  position: sticky; left: 0; background: #fff; z-index: 1;
+}
+.city-group[open] .city-group-body td.col-company { background: #fff; }
+.city-group-body .row-controls button {
+  background: transparent; border: none; cursor: pointer; color: var(--tx3); font-size: .9rem;
+}
+.city-group-body .row-controls button:hover { color: var(--r); }
+
+@media (max-width: 560px) {
+  .cg-progress { display: none; }
+  .city-group-head { padding: 10px 12px; gap: 8px; }
+  .cg-name { font-size: 0.95rem; }
+}
+
 /* ===== 年間ミニマップ ===== */
 .minimap-summary {
   display: flex; gap: 20px; align-items: center; margin-bottom: 12px; flex-wrap: wrap;

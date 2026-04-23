@@ -2,7 +2,14 @@
 (function (root) {
   'use strict';
 
+  // 都市別アコーディオンの開閉状態（モジュール内で保持、都市タブ切替時にリセット）
+  let _expandedSet = null;
+
   const UICompanyEntry = {
+    // 外部から呼ばれる：都市タブを切り替えたときにその都市だけ展開状態にする
+    setCurrentCityForCollapse(cityId) {
+      _expandedSet = new Set([cityId]);
+    },
     openAddModal(ctx) {
       // ctx: { cities, presets, existingIds, onSave }
       const modal = document.getElementById('modal-add-company');
@@ -88,7 +95,7 @@
     },
 
     renderCompaniesTable(container, ctx) {
-      const { companies, cities, assignments, isAdmin, currentMonth } = ctx;
+      const { companies, cities, assignments, isAdmin, currentMonth, currentCityId } = ctx;
       if (!companies.length) {
         container.innerHTML = '<div class="sp-empty">まだ会社が登録されていません。ヘッダーの「＋ 自分の会社を追加」で登録してください。</div>';
         return;
@@ -102,59 +109,121 @@
         return;
       }
 
-      const html = `
-        <table>
-          <thead>
-            <tr>
-              <th class="col-company">会社</th>
-              <th>都市</th>
-              ${days.map(d => {
-                const wd = '日月火水木金土'[new Date(d.date + 'T00:00:00+09:00').getDay()];
-                return `<th><small>${+d.date.slice(5,7)}/${+d.date.slice(8,10)}<br>(${wd})</small></th>`;
-              }).join('')}
-              ${isAdmin ? '<th></th>' : ''}
-            </tr>
-          </thead>
-          <tbody>
-            ${companies.map(c => {
-              const cityIds = c.cityParticipation && c.cityParticipation.length ? c.cityParticipation : cities.map(x => x.id);
-              return cityIds.map(cid => {
-                const cityObj = cities.find(x => x.id === cid);
-                const cityName = cityObj?.name || cid;
-                return `<tr data-company-id="${c.id}" data-city="${cid}">
-                  <td class="col-company">${escapeHtml(c.name)}</td>
-                  <td><span style="color:${cityObj?.color || '#888'};font-weight:700">${cityName}</span></td>
-                  ${days.map(d => {
-                    const s = Scheduler.getStatusFor(c.id, cid, d.date, assignments);
-                    return `<td class="status-picker-cell">${renderStatusPicker(s, { companyId: c.id, cityId: cid, date: d.date })}</td>`;
-                  }).join('')}
-                  ${isAdmin ? `<td class="row-controls"><button data-action="remove-company" data-company="${c.id}" title="削除">✕</button></td>` : ''}
-                </tr>`;
-              }).join('');
-            }).join('')}
-          </tbody>
-        </table>`;
-      container.innerHTML = html;
+      // 開閉状態を初期化：初回または currentCity が変わった直後はそれだけ開く
+      if (!_expandedSet) _expandedSet = new Set([currentCityId]);
 
+      // 都市別にメンバーをグルーピング（都市マスタの並び順＝表示順）
+      const groups = cities.map(city => {
+        const members = companies.filter(c => {
+          const cids = (c.cityParticipation && c.cityParticipation.length) ? c.cityParticipation : cities.map(x => x.id);
+          return cids.includes(city.id);
+        });
+        return { city, members };
+      });
+
+      const toolbar = `
+        <div class="city-group-toolbar">
+          <button type="button" class="btn-tiny" data-action="expand-all">＋ 全部ひらく</button>
+          <button type="button" class="btn-tiny" data-action="collapse-all">− 全部とじる</button>
+          <button type="button" class="btn-tiny btn-tiny-primary" data-action="focus-current">▼ いま選んでる都市だけ開く</button>
+          <span class="toolbar-hint">他都市は閉じておくと見やすいよ</span>
+        </div>`;
+
+      const groupsHtml = groups.map(({ city, members }) => {
+        const isOpen = _expandedSet.has(city.id);
+        const isCurrent = city.id === currentCityId;
+        const confirmedCount = assignments.filter(a => a.cityId === city.id && a.confirmed).length;
+        const body = members.length
+          ? renderCityTable(city, members, days, assignments, isAdmin)
+          : '<div class="sp-empty">この都市には、まだ会社が登録されていません。</div>';
+        return `
+          <details class="city-group ${isCurrent ? 'is-current' : ''}" data-city="${city.id}" ${isOpen ? 'open' : ''}>
+            <summary class="city-group-head" style="border-left-color:${city.color}">
+              <span class="cg-chev">▶</span>
+              <span class="cg-dot" style="background:${city.color}"></span>
+              <span class="cg-name">${escapeHtml(city.name)}</span>
+              <span class="cg-count">${members.length}社</span>
+              <span class="cg-progress">${confirmedCount}/11 確定</span>
+              ${isCurrent ? '<span class="cg-tag">いま対象</span>' : ''}
+            </summary>
+            <div class="city-group-body">
+              ${body}
+            </div>
+          </details>`;
+      }).join('');
+
+      container.innerHTML = toolbar + '<div class="city-groups">' + groupsHtml + '</div>';
+
+      // 開閉トグル → 内部状態を同期
+      container.querySelectorAll('details.city-group').forEach(d => {
+        d.addEventListener('toggle', () => {
+          if (d.open) _expandedSet.add(d.dataset.city);
+          else _expandedSet.delete(d.dataset.city);
+        });
+      });
+
+      // ツールバー
+      container.querySelector('[data-action="expand-all"]').addEventListener('click', () => {
+        container.querySelectorAll('details.city-group').forEach(d => { d.open = true; });
+      });
+      container.querySelector('[data-action="collapse-all"]').addEventListener('click', () => {
+        container.querySelectorAll('details.city-group').forEach(d => { d.open = false; });
+      });
+      container.querySelector('[data-action="focus-current"]').addEventListener('click', () => {
+        container.querySelectorAll('details.city-group').forEach(d => {
+          d.open = (d.dataset.city === currentCityId);
+        });
+      });
+
+      // ○△×
       container.querySelectorAll('.status-picker-cell .sp-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
           e.stopPropagation();
           const current = btn.dataset.current;
           const target = btn.dataset.target;
-          // 同じステータスを再クリックなら UNKNOWN に戻す、違う状態なら target に変更
           const next = current === target ? 'UNKNOWN' : target;
           ctx.onStatusToggle && ctx.onStatusToggle(btn.dataset.company, btn.dataset.city, btn.dataset.date, next);
         });
       });
+      // 会社削除（管理者）
       container.querySelectorAll('[data-action="remove-company"]').forEach(btn => {
         btn.addEventListener('click', () => {
-          if (confirm('この会社を削除しますか？')) {
+          const name = btn.dataset.name || 'この会社';
+          if (confirm(`「${name}」を全都市から削除します。よろしいですか？`)) {
             ctx.onRemove && ctx.onRemove(btn.dataset.company);
           }
         });
       });
     },
   };
+
+  // 都市グループ内のテーブル（会社は cityParticipation にその都市を含むもののみ）
+  function renderCityTable(city, members, days, assignments, isAdmin) {
+    return `
+      <table>
+        <thead>
+          <tr>
+            <th class="col-company">会社</th>
+            ${days.map(d => {
+              const wd = '日月火水木金土'[new Date(d.date + 'T00:00:00+09:00').getDay()];
+              return `<th><small>${+d.date.slice(5,7)}/${+d.date.slice(8,10)}<br>(${wd})</small></th>`;
+            }).join('')}
+            ${isAdmin ? '<th></th>' : ''}
+          </tr>
+        </thead>
+        <tbody>
+          ${members.map(c => `
+            <tr data-company-id="${c.id}" data-city="${city.id}">
+              <td class="col-company">${escapeHtml(c.name)}</td>
+              ${days.map(d => {
+                const s = Scheduler.getStatusFor(c.id, city.id, d.date, assignments);
+                return `<td class="status-picker-cell">${renderStatusPicker(s, { companyId: c.id, cityId: city.id, date: d.date })}</td>`;
+              }).join('')}
+              ${isAdmin ? `<td class="row-controls"><button data-action="remove-company" data-company="${c.id}" data-name="${escapeAttr(c.name)}" title="削除">✕</button></td>` : ''}
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
+  }
 
   function makeCompany(name, cityIds) {
     const id = (typeof crypto !== 'undefined' && crypto.randomUUID)
