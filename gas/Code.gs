@@ -214,6 +214,7 @@ function confirmHandler(body) {
   }
   if (unconfirm) {
     a.confirmed = false;
+    a.selectedDate = null;
   } else {
     if (!date) throw new Error('date が必要');
     a.selectedDate = date;
