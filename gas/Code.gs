@@ -79,13 +79,12 @@ function jsonResponse(obj) {
 
 function bootstrapHandler(e) {
   const year = +(e.parameter.year || 2026);
-  const months = buildMonthsForYear(year);
+  // 他研修スプシとの接続は切断済み。クライアント側 other-trainings.json から月データを構築する。
+  // （旧: const months = buildMonthsForYear(year); でスプシ読み取り → v5 で廃止）
   const state = loadState(year);
-  // 明示的に companies/assignments を含めて返す（クライアント互換のため）
   return {
     ok: true,
     fiscalYear: year,
-    months,
     state,
     companies: state.companies || [],
     assignments: state.assignments || [],
@@ -279,14 +278,8 @@ function oneTimeSetup() {
   const ssUrl = ss.getUrl();
   const ssId = ss.getId();
 
-  // 他研修スプシ疎通確認
-  let monthsCount = 0;
-  try {
-    const months = buildMonthsForYear(2026);
-    monthsCount = months.length;
-  } catch (e) {
-    Logger.log('他研修スプシ読み取りエラー: ' + e.message);
-  }
+  // v5以降、他研修スプシとの接続は切断（クライアント側JSON固定運用）
+  const monthsCount = 0;
 
   // デフォルトの管理者パスワードハッシュを設定（初回のみ、既存は変更しない）
   const props = PropertiesService.getScriptProperties();

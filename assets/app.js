@@ -104,7 +104,8 @@
       }
     },
 
-    // 月データ構築：サーバから来ていればそれを使う、なければ候補帯 + other-trainings.json から計算
+    // 月データ構築：フロント側 other-trainings.json + ozawa-range.json から計算する（v5以降、他研修スプシからは切断）。
+    // App._serverMonths は互換のため残しているが、通常は空で本分岐は常にフォールバックする。
     buildMonthsData() {
       if (App._serverMonths) return App._serverMonths;
       const out = [];
