@@ -218,9 +218,9 @@ clasp open                                 # GAS エディタを開く
 │   ├── Code.gs                   # doGet/doPost ルーター
 │   ├── sheets-reader.gs          # 他研修スプシA-H列読み取り
 │   └── state-store.gs            # 状態保存スプシ読み書き
-├── samples/
+├── サンプル/
 │   └── sample-state.json         # デモ用
-└── docs/
+└── ドキュメント/
     ├── README.md                 # プロジェクト概要・デプロイ手順
     └── algorithm.md              # スコアリング式
 ```

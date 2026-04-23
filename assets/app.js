@@ -560,6 +560,12 @@
         }
       });
 
+      // 使い方マニュアル
+      const helpBtn = document.getElementById('btn-help');
+      if (helpBtn) {
+        helpBtn.addEventListener('click', () => App.openModal('modal-help'));
+      }
+
       // 管理者
       document.getElementById('btn-admin').addEventListener('click', () => {
         if (root.Storage.isAdmin()) {

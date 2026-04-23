@@ -25,6 +25,7 @@
         <button id="btn-add-company" class="btn btn-primary">＋ 自分の会社を追加</button>
         <button id="btn-export-line" class="btn">LINE用コピー</button>
         <button id="btn-export-pdf" class="btn">PDF出力</button>
+        <button id="btn-help" class="btn btn-ghost" title="使い方を見る">？使い方</button>
         <button id="btn-admin" class="btn btn-ghost" title="管理者ログイン">⚙</button>
       </div>
     </div>
@@ -119,6 +120,86 @@
     <div class="modal-actions">
       <button class="btn btn-ghost" data-modal-close>キャンセル</button>
       <button class="btn btn-primary" id="btn-company-save">追加する</button>
+    </div>
+  </div>
+</div>
+
+<!-- モーダル：使い方マニュアル -->
+<div id="modal-help" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="help-title">
+  <div class="modal-card modal-lg">
+    <button class="modal-close" data-modal-close aria-label="閉じる">×</button>
+    <h3 id="help-title">使い方ガイド</h3>
+
+    <div class="help-body">
+      <section>
+        <h4>1. 最初にやること</h4>
+        <ol>
+          <li>配布されたURLをブラウザで開く</li>
+          <li>ヘッダーの <strong>「＋ 自分の会社を追加」</strong> で自社を登録（代表者名でOK）</li>
+          <li>参加する都市（浜松L1 / 浜松L2 / 静岡 / 横浜 / 栃木）にチェック</li>
+        </ol>
+      </section>
+
+      <section>
+        <h4>2. 候補日の記入（○△×）</h4>
+        <ul>
+          <li><strong>○</strong> 参加可 ／ <strong>△</strong> 調整可（時間をもらえれば可能） ／ <strong>×</strong> 不参加</li>
+          <li>画面下「参加会社一覧」の自社行で、候補日セルの <code>○△×</code> をクリック</li>
+          <li>もう一度同じ記号をクリックで「未回答」に戻せる</li>
+        </ul>
+      </section>
+
+      <section>
+        <h4>3. 日程の確定</h4>
+        <ul>
+          <li>カレンダーの候補日セルをクリック → 右サイドパネルで参加状況を確認</li>
+          <li><strong>★</strong> マーク ＝ 最小譲歩で全員参加可になる日（スケジューラ推奨）</li>
+          <li><strong>🔒</strong> ＝ 他都市で既に確定済みの日（原則ブロック）</li>
+          <li><strong>✨</strong> ＝ 小澤さん希望帯に収まっている日</li>
+          <li>右パネルの「この日で確定する🔒」で確定</li>
+        </ul>
+      </section>
+
+      <section>
+        <h4>4. 保存について</h4>
+        <ul>
+          <li><strong>完全自動保存です。</strong>「保存」ボタンはありません</li>
+          <li>○△× をクリックした瞬間、確定した瞬間、会社を追加した瞬間 — すべて即時にクラウド（Google スプレッドシート）へ保存されます</li>
+          <li>ヘッダー右上の「接続中」表示が緑ならクラウドと同期中。「オフライン」になったら手元（ブラウザ）にだけ保存され、再接続時に送信されます</li>
+          <li>他の人が更新したら <strong>5秒以内</strong> に自分の画面にも反映されます</li>
+        </ul>
+      </section>
+
+      <section>
+        <h4>5. 編集・削除・確定解除</h4>
+        <ul>
+          <li><strong>○△×の変更</strong>：何回でも上書きOK（自動保存）</li>
+          <li><strong>会社の追加</strong>：「＋ 自分の会社を追加」から誰でも可能</li>
+          <li><strong>会社の削除 / 確定解除</strong>：右上「⚙」で管理者ログイン（運営者のみ）が必要</li>
+          <li><strong>会社名の変更</strong>：該当会社を削除 → 新しい名前で再追加</li>
+        </ul>
+      </section>
+
+      <section>
+        <h4>6. 出力</h4>
+        <ul>
+          <li><strong>LINE用コピー</strong>：決定事項のテキストをクリップボードへ</li>
+          <li><strong>PDF出力</strong>：A4横の年間スケジュール表をダウンロード</li>
+        </ul>
+      </section>
+
+      <section>
+        <h4>7. 困ったら</h4>
+        <ul>
+          <li>画面が古い気がする → ブラウザをリロード（F5）</li>
+          <li>ヘッダーが「オフライン」のまま戻らない → 数分待つか、URLを開き直す</li>
+          <li>その他の症状 → 運営（白都）まで連絡</li>
+        </ul>
+      </section>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-primary" data-modal-close>閉じる</button>
     </div>
   </div>
 </div>

@@ -52,7 +52,7 @@ GitHub Pages (静的フロント)
 
 ### 4. GitHub Pages にデプロイ
 1. GitHubで private repo `powerup-kenshu` を作成
-2. ローカルのツールフォルダを push（`index.html` と `assets/` と `docs/` `samples/`）
+2. ローカルのツールフォルダを push（`index.html` と `assets/` と `ドキュメント/` `サンプル/`）
 3. リポジトリ設定 → Pages → `main` branch `/` から公開
 4. 発行されるURL（`https://hakuto-t.github.io/powerup-kenshu/`）を各社代表にLINEで配布
 
@@ -107,4 +107,4 @@ py -m http.server 8080
 
 ## 設計方針
 
-詳細は `docs/algorithm.md` とリポジトリの [プラン](../nifty-inventing-wolf.md) を参照。
+詳細は `ドキュメント/algorithm.md` とリポジトリの [プラン](../nifty-inventing-wolf.md) を参照。
