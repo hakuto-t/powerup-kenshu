@@ -26,6 +26,7 @@ function doGet(e) {
     let data;
     if (action === 'bootstrap') data = bootstrapHandler(e);
     else if (action === 'state') data = stateHandler(e);
+    else if (action === 'diag') data = { ok: true, diag: diagState(+(e.parameter.year || 2026)) };
     else throw new Error('unknown action: ' + action);
     return jsonResponse(data);
   } catch (err) {
@@ -72,6 +73,7 @@ function safeErrMsg(err) {
   if (/不正|invalid|必要|required|範囲|range/i.test(msg)) return msg;
   if (/unknown action/i.test(msg)) return msg;
   if (/ブラウザを.*リロード|古いため|古いJS/i.test(msg)) return msg;
+  if (/状態.*壊|バックアップ|復旧/i.test(msg)) return msg;
   return 'サーバーエラーが発生しました';
 }
 

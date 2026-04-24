@@ -2,7 +2,7 @@
 (function (root) {
   'use strict';
 
-  const CLIENT_VERSION = 'v5.3';   // 古いブラウザキャッシュを検出するためのクライアント版。JSを変更したら更新すること
+  const CLIENT_VERSION = 'v5.4';   // 古いブラウザキャッシュを検出するためのクライアント版。JSを変更したら更新すること
   const POLL_INTERVAL_MS = 5000;   // 5秒（GASクォータ削減、体感は許容範囲）
   const ADMIN_SESSION_MS = 30 * 60 * 1000; // 管理者セッション有効期限 30分
   console.log('[powerup-kenshu] client version:', CLIENT_VERSION);
@@ -57,6 +57,38 @@
         const si = document.getElementById('sync-indicator');
         if (si) { si.classList.add('offline'); si.querySelector('.label').textContent = 'ローカルのみ'; }
       }
+
+      // 7) bfcache / タブ復帰対策：戻るボタン等でキャッシュから復元されたタブは、
+      //    古い state のまま操作を続けると他ユーザーの変更を上書きする恐れがある。
+      //    pageshow.persisted=true の場合と、visibilitychange で表示状態に戻ったときに
+      //    state を強制再同期する。
+      window.addEventListener('pageshow', (e) => {
+        if (e.persisted) {
+          console.log('[powerup-kenshu] pageshow from bfcache — refetching state');
+          App._refetchState();
+        }
+      });
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && root.Api.hasBackend()) {
+          // タブに戻ってきたら即座にポーリングして同期
+          App._pollOnce();
+        }
+      });
+    },
+
+    // 単発ポーリング（pageshow / visibilitychange から即時同期するため）
+    async _pollOnce() {
+      try {
+        const res = await root.Api.pollState(App.state.lastUpdated, App.state.version);
+        App._setSyncIndicator(true, '接続中');
+        if (res && res.changed && res.state && (res.state.version || 0) > (App.state.version || 0)) {
+          App.state = res.state;
+          App.saveLocal();
+          App.renderAll();
+        }
+      } catch (e) {
+        App._setSyncIndicator(false, 'オフライン');
+      }
     },
 
     async loadState() {
@@ -101,20 +133,40 @@
     // サーバーから返った state をクライアント側に反映するか判断する共通ヘルパー。
     // レスポンスが順不同で返っても古い state で新しいローカル state を潰さないよう、
     // 受け取った state の version が手元より前進しているときだけ採用する。
+    // 戻り値: 'applied' | 'skipped' | 'rejected'
     _applyServerResponse(res) {
-      if (!res) return false;
-      // エラー応答（ok:false）はサーバー側でリジェクトされている。画面に出す
+      if (!res) return 'skipped';
+      // エラー応答（ok:false）はサーバー側でリジェクトされている。
       if (res.ok === false) {
         App.toast('保存できませんでした：' + (res.error || 'サーバーエラー。ブラウザを更新してください'), 'error');
-        return false;
+        return 'rejected';
       }
-      if (!res.state) return false;
+      if (!res.state) return 'skipped';
       const localV = App.state.version || 0;
       const serverV = res.state.version || 0;
       if (serverV > localV) {
         App.state = res.state;
         App.saveLocal();
-        return true;
+        return 'applied';
+      }
+      return 'skipped';
+    },
+
+    // サーバーに reject されたとき、またはネットワークエラーでローカル state が先走って
+    // いるとき、サーバーから最新 state を取り直して差し戻す。これをしないと
+    // local/server が乖離してポーリングでも同期されなくなる。
+    async _refetchState() {
+      if (!root.Api.hasBackend()) return false;
+      try {
+        const boot = await root.Api.getBootstrap();
+        if (boot && boot.state) {
+          App.state = boot.state;
+          App.saveLocal();
+          App.renderAll();
+          return true;
+        }
+      } catch (e) {
+        App._setSyncIndicator(false, 'オフライン');
       }
       return false;
     },
@@ -431,9 +483,15 @@
       try {
         const ym = `${y}-${String(m).padStart(2, '0')}`;
         const res = await root.Api.updateStatus({ companyId, cityId, ym, date, status: next });
-        if (App._applyServerResponse(res)) App.renderAll();
+        const r = App._applyServerResponse(res);
+        if (r === 'applied') App.renderAll();
+        else if (r === 'rejected') {
+          // サーバーが拒否した場合、ローカルで先走った state を最新に差し戻す
+          await App._refetchState();
+        }
       } catch (e) {
-        App.toast('保存エラー（ローカルには保存済み）: ' + e.message, 'warn');
+        App.toast('保存エラー（ローカル保存は済・同期を取り直し）: ' + e.message, 'warn');
+        await App._refetchState();
       }
     },
 
@@ -459,9 +517,12 @@
       if (!root.Api.hasBackend()) return;
       try {
         const res = await root.Api.confirmAssignment(App.currentCityId, y, m, date, null);
-        if (App._applyServerResponse(res)) App.renderAll();
+        const r = App._applyServerResponse(res);
+        if (r === 'applied') App.renderAll();
+        else if (r === 'rejected') await App._refetchState();
       } catch (e) {
-        App.toast('確定の保存エラー（ローカルには保存済み）: ' + e.message, 'warn');
+        App.toast('確定の保存エラー（同期を取り直し）: ' + e.message, 'warn');
+        await App._refetchState();
       }
     },
 
@@ -513,32 +574,49 @@
       if (!root.Api.hasBackend()) return;
       try {
         const res = await root.Api.addCompany(company);
-        if (App._applyServerResponse(res)) App.renderAll();
+        const r = App._applyServerResponse(res);
+        if (r === 'applied') App.renderAll();
+        else if (r === 'rejected') await App._refetchState();
       } catch (e) {
-        App.toast('会社追加の保存エラー（ローカルには保存済み）: ' + e.message, 'warn');
+        App.toast('会社追加の保存エラー（同期を取り直し）: ' + e.message, 'warn');
+        await App._refetchState();
       }
     },
 
     async removeCompany(companyId) {
       if (!App.isAdminActive()) { App.toast('削除には管理者ログインが必要です', 'warn'); return; }
-      // 1) ローカル楽観更新（会社と関連 status を除去）
-      App.state.companies = App.state.companies.filter(c => c.id !== companyId);
-      App.state.assignments.forEach(a => {
-        a.statuses = (a.statuses || []).filter(s => s.companyId !== companyId);
-      });
-      App.state.lastUpdated = new Date().toISOString();
-      App.state.version = (App.state.version || 0) + 1;
-      App.saveLocal();
-      App.renderAll();
-      // 2) サーバーへ差分送信（他ユーザーが同時に別の会社を編集していても潰さない）
-      if (!root.Api.hasBackend()) return;
-      try {
-        const pw = root.Storage.getAdminPw ? root.Storage.getAdminPw() : null;
-        const res = await root.Api.removeCompany(companyId, pw);
-        if (App._applyServerResponse(res)) App.renderAll();
-      } catch (e) {
-        App.toast('削除の保存エラー（ローカルには保存済み）: ' + e.message, 'warn');
+      // 管理者パスワードが欠落/失効していたら、ローカル変更する前に弾く
+      const pw = root.Storage.getAdminPw ? root.Storage.getAdminPw() : null;
+      if (root.Api.hasBackend() && !pw) {
+        App.toast('管理者パスワードが見つかりません。再ログインしてください', 'error');
+        return;
       }
+      // サーバー成功を先に確認してからローカル更新する（admin auth 失敗時の乖離防止）
+      if (root.Api.hasBackend()) {
+        try {
+          const res = await root.Api.removeCompany(companyId, pw);
+          if (!res || res.ok === false) {
+            App.toast('削除に失敗しました：' + ((res && res.error) || 'サーバーエラー'), 'error');
+            return;
+          }
+          App._applyServerResponse(res);
+        } catch (e) {
+          App.toast('削除の保存エラー（同期を取り直し）: ' + e.message, 'warn');
+          await App._refetchState();
+          return;
+        }
+      } else {
+        // オフライン動作：ローカルのみ更新
+        App.state.companies = App.state.companies.filter(c => c.id !== companyId);
+        App.state.assignments.forEach(a => {
+          a.statuses = (a.statuses || []).filter(s => s.companyId !== companyId);
+        });
+        App.state.lastUpdated = new Date().toISOString();
+        App.state.version = (App.state.version || 0) + 1;
+        App.saveLocal();
+      }
+      App.toast('削除しました', 'success');
+      App.renderAll();
     },
 
     // ------- ポーリング -------
@@ -600,12 +678,22 @@
             App.renderAll();
             if (!root.Api.hasBackend()) return;
             try {
-              const results = await Promise.all(companies.map(c => root.Api.addCompany(c)));
+              // Promise.allSettled で1社失敗しても他は通すようにする
+              const results = await Promise.allSettled(companies.map(c => root.Api.addCompany(c)));
+              const rejected = results.some(r => r.status === 'rejected' || (r.value && r.value.ok === false));
+              if (rejected) {
+                App.toast('一部の会社追加がサーバー側で失敗しました。最新状態を取り直します', 'warn');
+                await App._refetchState();
+                return;
+              }
               // 最後のレスポンスが最新版なので、それで反映を試みる
-              const last = results[results.length - 1];
-              if (App._applyServerResponse(last)) App.renderAll();
+              const last = results[results.length - 1].value;
+              const r = App._applyServerResponse(last);
+              if (r === 'applied') App.renderAll();
+              else if (r === 'rejected') await App._refetchState();
             } catch (e) {
-              App.toast('会社追加の保存エラー（ローカルには保存済み）: ' + e.message, 'warn');
+              App.toast('会社追加の保存エラー（同期を取り直し）: ' + e.message, 'warn');
+              await App._refetchState();
             }
           },
         });
