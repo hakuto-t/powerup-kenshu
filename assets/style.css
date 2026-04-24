@@ -238,6 +238,16 @@ main .btn-primary:hover { background: var(--pri2); }
 }
 .side-panel .sp-empty { color: var(--tx3); font-size: .86rem; padding: 20px 0; text-align: center; }
 .sp-date { font-size: 1.3rem; font-weight: 900; font-family: 'DM Sans',sans-serif; }
+.sp-detail-head { display: flex; flex-direction: column; gap: 6px; }
+.sp-back-btn {
+  align-self: flex-start;
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 10px; border-radius: 14px; cursor: pointer;
+  background: #fff; border: 1px solid var(--border2); color: var(--tx2);
+  font-size: .78rem; font-weight: 600; line-height: 1;
+  transition: all 0.15s ease;
+}
+.sp-back-btn:hover { background: var(--pri); color: #fff; border-color: var(--pri); }
 .sp-score { font-size: .92rem; color: var(--tx2); margin-top: 4px; font-weight: 600; }
 .sp-score .sp-score-num { font-size: 1.1rem; font-weight: 900; font-family: 'DM Sans',sans-serif; color: var(--pri); margin-left: 4px; }
 

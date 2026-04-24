@@ -2,7 +2,7 @@
 (function (root) {
   'use strict';
 
-  const CLIENT_VERSION = 'v5.7';   // 古いブラウザキャッシュを検出するためのクライアント版。JSを変更したら更新すること
+  const CLIENT_VERSION = 'v5.8';   // 古いブラウザキャッシュを検出するためのクライアント版。JSを変更したら更新すること
   const POLL_INTERVAL_MS = 3000;   // 3秒。本番運用でタップが消えて見える体感を抑えるため短めにする
   const ADMIN_SESSION_MS = 30 * 60 * 1000; // 管理者セッション有効期限 30分
   console.log('[powerup-kenshu] client version:', CLIENT_VERSION);
@@ -407,6 +407,11 @@
         onStatusChange: (cid, date, next) => App.updateStatus(cid, App.currentCityId, date, next),
         onConfirm: (date) => App.confirmDate(date),
         onUnconfirm: () => App.unconfirmDate(),
+        onBack: () => {
+          App.selectedDate = null;
+          App.renderSidePanel();
+          App.renderCalendarOnly();
+        },
       });
     },
 

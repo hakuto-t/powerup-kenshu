@@ -77,7 +77,10 @@
       const p = rank?.participation;
 
       const parts = [];
-      parts.push(`<div class="sp-date">${cityName}｜${SchedUtil.fmt(date)}</div>`);
+      parts.push(`<div class="sp-detail-head">
+        <button type="button" class="sp-back-btn" data-action="back" title="候補日ランキングに戻る">← 一覧に戻る</button>
+        <div class="sp-date">${cityName}｜${SchedUtil.fmt(date)}</div>
+      </div>`);
       parts.push(`<div class="sp-score">小澤スコア <span class="sp-score-num">${rank ? formatScore(rank.totalScore) : '-'}</span></div>`);
 
       // ハード違反
@@ -166,6 +169,7 @@
       });
       el.querySelectorAll('[data-action="confirm"]').forEach(b => b.addEventListener('click', () => ctx.onConfirm && ctx.onConfirm(date)));
       el.querySelectorAll('[data-action="unconfirm"]').forEach(b => b.addEventListener('click', () => ctx.onUnconfirm && ctx.onUnconfirm()));
+      el.querySelectorAll('[data-action="back"]').forEach(b => b.addEventListener('click', () => ctx.onBack && ctx.onBack()));
     },
   };
 
