@@ -6,7 +6,7 @@
 
   const UICalendar = {
     render(container, monthData, ctx) {
-      // ctx: { cityId, assignments, ranked, selectedDate, otherConfirmedByDate }
+      // ctx: { cityId, assignments, ranked, selectedDate, otherConfirmedByDate, city }
       container.innerHTML = '';
       if (!monthData) {
         container.innerHTML = '<div class="sp-empty">この月は研修なし（2月は小澤さん休講月）</div>';
@@ -73,7 +73,7 @@
           </div>
           ${dayInfo.holiday ? `<div class="cell-holiday">${dayInfo.holiday}</div>` : ''}
           ${renderSummary(rank)}
-          ${renderBadges(dayInfo, otherCityConfirm, isConfirmed, hasViolation, rank)}
+          ${renderBadges(dayInfo, otherCityConfirm, isConfirmed, hasViolation, rank, ctx.city)}
         `;
 
         if (dayInfo.inCandidateRange) {
@@ -95,7 +95,7 @@
     </div>`;
   }
 
-  function renderBadges(dayInfo, otherCityConfirm, isConfirmed, hasViolation, rank) {
+  function renderBadges(dayInfo, otherCityConfirm, isConfirmed, hasViolation, rank, city) {
     const parts = [];
     if (isConfirmed) {
       parts.push(`<span class="badge-confirm">🔒 確定</span>`);
@@ -111,10 +111,13 @@
       const top = rank.softHits.find(h => h.id === 'S4' || h.id === 'S5') || rank.softHits[0];
       parts.push(`<span class="badge-ozawa">${top.label.charAt(0)}</span>`);
     }
-    // 他研修（最大2件）
+    // 他研修（最大2件）— 共存不可は赤系、共存可は黄系
     const op = (dayInfo.otherPrograms || []).slice(0, 2);
     for (const p of op) {
-      parts.push(`<span class="badge-ot" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</span>`);
+      const compat = root.Scheduler && root.Scheduler.isOtherProgramCompatible(city, p.name);
+      const cls = compat ? 'badge-ot badge-ot-ok' : 'badge-ot badge-ot-ng';
+      const title = compat ? `${p.name}（共存可）` : `${p.name}（共存不可・衝突）`;
+      parts.push(`<span class="${cls}" title="${escapeHtml(title)}">${escapeHtml(p.name)}</span>`);
     }
     if ((dayInfo.otherPrograms || []).length > 2) {
       parts.push(`<span class="badge-ot">+${dayInfo.otherPrograms.length - 2}</span>`);

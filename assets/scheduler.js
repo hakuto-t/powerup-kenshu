@@ -61,7 +61,25 @@
     return false;
   }
 
+  // 他研修の共存可否判定（cities.json の compatibleOtherPrograms に従う）
+  //   city.compatibleOtherPrograms が未定義なら「判定不能」としてデフォルト挙動（全てNG＝ペナルティ対象）
+  function isOtherProgramCompatible(city, programName) {
+    if (!city || !Array.isArray(city.compatibleOtherPrograms)) return false;
+    return city.compatibleOtherPrograms.includes(programName);
+  }
+  function splitOtherPrograms(city, otherPrograms) {
+    const compat = [], incompat = [];
+    for (const p of (otherPrograms || [])) {
+      if (isOtherProgramCompatible(city, p.name)) compat.push(p);
+      else incompat.push(p);
+    }
+    return { compat, incompat };
+  }
+
   const Scheduler = {
+    isOtherProgramCompatible,
+    splitOtherPrograms,
+
     // 対象月の候補日（候補帯内のみ）を列挙。土日祝日も含む（UIでは色で示す）。
     getCandidateDates(monthData) {
       if (!monthData || !monthData.days) return [];
@@ -69,18 +87,22 @@
     },
 
     // 候補日ごとのスコア
-    rankCandidates(monthData, cityId, companies, assignments, weights) {
+    // opts.city を渡すと他研修の共存可否を考慮（共存可なら S7 ペナルティなし）
+    rankCandidates(monthData, cityId, companies, assignments, weights, opts) {
       const candidates = Scheduler.getCandidateDates(monthData);
       const confirmed = assignments
         .filter(a => a.confirmed && a.selectedDate)
         .map(a => ({ cityId: a.cityId, date: a.selectedDate, year: a.year, month: a.month }));
+      const city = (opts && opts.city) || null;
 
       return candidates.map(d => {
         const hardViolations = Scheduler.checkHard(d, cityId, confirmed);
         const soft = Scheduler.scoreSoft(d, cityId, confirmed, weights);
         const part = Scheduler.countParticipation(d.date, cityId, companies, assignments);
 
-        const otherPenalty = (d.otherPrograms || []).length * (weights.S7_other_training_per_item || -3);
+        // 他研修を共存可/共存不可に分け、ペナルティは共存不可のみ対象
+        const { compat: compatOther, incompat: incompatOther } = splitOtherPrograms(city, d.otherPrograms);
+        const otherPenalty = incompatOther.length * (weights.S7_other_training_per_item || -3);
         const weekendPenalty = (Util.isWeekend(d.date) || d.holiday) ? (weights.S8_weekend_or_holiday || -5) : 0;
 
         const total = hardViolations.length > 0
@@ -95,6 +117,8 @@
           weekday: Util.weekday(d.date),
           holiday: d.holiday,
           otherPrograms: d.otherPrograms || [],
+          compatibleOtherPrograms: compatOther,
+          incompatibleOtherPrograms: incompatOther,
           totalScore: total,
           participation: part,
           softHits: soft.hits,
@@ -179,8 +203,8 @@
     },
 
     // 最小譲歩：ある日で1社が1ステップ改善（NG→MAYBE or MAYBE→OK）したときの総合スコア改善量を列挙
-    suggestCompromises(monthData, cityId, companies, assignments, weights, topK = 3) {
-      const ranked = Scheduler.rankCandidates(monthData, cityId, companies, assignments, weights);
+    suggestCompromises(monthData, cityId, companies, assignments, weights, topK = 3, opts) {
+      const ranked = Scheduler.rankCandidates(monthData, cityId, companies, assignments, weights, opts);
       const baseTop = ranked[0]?.totalScore ?? -Infinity;
 
       const suggestions = [];
@@ -212,7 +236,7 @@
             if (idx >= 0) simA.statuses[idx].status = to;
             else simA.statuses.push({ companyId: c.id, date: cand.date, status: to });
 
-            const reranked = Scheduler.rankCandidates(monthData, cityId, companies, replaced, weights);
+            const reranked = Scheduler.rankCandidates(monthData, cityId, companies, replaced, weights, opts);
             const newTop = reranked[0]?.totalScore ?? -Infinity;
             const delta = newTop - baseTop;
             if (delta > 0) {

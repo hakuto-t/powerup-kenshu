@@ -2,7 +2,7 @@
 (function (root) {
   'use strict';
 
-  const CLIENT_VERSION = 'v5.8';   // 古いブラウザキャッシュを検出するためのクライアント版。JSを変更したら更新すること
+  const CLIENT_VERSION = 'v5.9';   // 古いブラウザキャッシュを検出するためのクライアント版。JSを変更したら更新すること
   const POLL_INTERVAL_MS = 3000;   // 3秒。本番運用でタップが消えて見える体感を抑えるため短めにする
   const ADMIN_SESSION_MS = 30 * 60 * 1000; // 管理者セッション有効期限 30分
   console.log('[powerup-kenshu] client version:', CLIENT_VERSION);
@@ -295,17 +295,20 @@
 
       // カレンダー（ranked/suggestions は1回だけ計算してキャッシュ、サイドパネルからも参照）
       const ownAssign = App.getAssignment(App.currentCityId, y, m);
+      const cityObj = App.cities.find(c => c.id === App.currentCityId);
+      const schedOpts = { city: cityObj };
       const ranked = monthData && !monthData.skip
-        ? Scheduler.rankCandidates(monthData, App.currentCityId, App.state.companies, App.state.assignments, App.rules.soft)
+        ? Scheduler.rankCandidates(monthData, App.currentCityId, App.state.companies, App.state.assignments, App.rules.soft, schedOpts)
         : [];
       const suggestions = monthData && !monthData.skip
-        ? Scheduler.suggestCompromises(monthData, App.currentCityId, App.state.companies, App.state.assignments, App.rules.soft, 3)
+        ? Scheduler.suggestCompromises(monthData, App.currentCityId, App.state.companies, App.state.assignments, App.rules.soft, 3, schedOpts)
         : [];
       const otherConfirmedByDate = App.getOtherConfirmedByDate();
       App._computed = { monthData, ownAssign, ranked, suggestions, otherConfirmedByDate };
       const calEl = document.getElementById('calendar');
       UICalendar.render(calEl, monthData, {
         cityId: App.currentCityId,
+        city: cityObj,
         assignments: App.state.assignments,
         ranked,
         suggestions,
@@ -348,6 +351,7 @@
       if (!cached || !cached.monthData) { App.renderAll(); return; }
       UICalendar.render(document.getElementById('calendar'), cached.monthData, {
         cityId: App.currentCityId,
+        city: App.cities.find(c => c.id === App.currentCityId),
         assignments: App.state.assignments,
         ranked: cached.ranked,
         suggestions: cached.suggestions,
@@ -376,6 +380,7 @@
         const [y, m] = App.currentMonthKey.split('-').map(Number);
         UISidePanel.renderSummary(panel, {
           cityName: city ? city.name : App.currentCityId,
+          city,
           currentMonthLabel: `${y}年${m}月`,
           ranked,
           suggestions,
@@ -397,6 +402,7 @@
         rank,
         monthData,
         cityId: App.currentCityId,
+        city,
         cityName: city ? city.name : App.currentCityId,
         companies: App.state.companies,
         assignments: App.state.assignments,
@@ -520,7 +526,8 @@
       const a = App.ensureAssignment(App.currentCityId, y, m);
       // ハード制約チェック
       const monthData = App.getCurrentMonthData();
-      const ranked = Scheduler.rankCandidates(monthData, App.currentCityId, App.state.companies, App.state.assignments, App.rules.soft);
+      const cityObj = App.cities.find(c => c.id === App.currentCityId);
+      const ranked = Scheduler.rankCandidates(monthData, App.currentCityId, App.state.companies, App.state.assignments, App.rules.soft, { city: cityObj });
       const rank = ranked.find(r => r.date === date);
       if (rank && rank.hardViolations && rank.hardViolations.length) {
         if (!confirm(`⚠️ ハード制約違反があります：\n${rank.hardViolations.join('\n')}\n本当に確定しますか？`)) return;

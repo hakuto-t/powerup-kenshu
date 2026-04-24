@@ -1,9 +1,63 @@
 {
   "cities": [
-    { "id": "HL1", "name": "浜松L1", "fullName": "浜松（レベル1）", "color": "#0f4c5c", "geoOrder": 1, "region": "hamamatsu" },
-    { "id": "HL2", "name": "浜松L2", "fullName": "浜松（レベル2）", "color": "#0891b2", "geoOrder": 2, "region": "hamamatsu" },
-    { "id": "SZ",  "name": "静岡",   "fullName": "静岡",               "color": "#e8b931", "geoOrder": 3, "region": "shizuoka" },
-    { "id": "YH",  "name": "横浜",   "fullName": "横浜",               "color": "#7c3aed", "geoOrder": 4, "region": "kanagawa" },
-    { "id": "UT",  "name": "栃木",   "fullName": "栃木（宇都宮）",     "color": "#dc2626", "geoOrder": 5, "region": "utsunomiya" }
+    {
+      "id": "HL1",
+      "name": "浜松L1",
+      "fullName": "浜松（レベル1）",
+      "color": "#0f4c5c",
+      "geoOrder": 1,
+      "region": "hamamatsu",
+      "compatibleOtherPrograms": [
+        "栃木PBC", "顧問（栃木）",
+        "神奈川PBC", "顧問（神奈川）",
+        "浜松補助トレ",
+        "静岡PBC", "顧問（静岡）", "静岡補助トレ"
+      ]
+    },
+    {
+      "id": "HL2",
+      "name": "浜松L2",
+      "fullName": "浜松（レベル2）",
+      "color": "#0891b2",
+      "geoOrder": 2,
+      "region": "hamamatsu",
+      "compatibleOtherPrograms": [
+        "栃木PBC", "顧問（栃木）",
+        "神奈川PBC", "顧問（神奈川）",
+        "浜松補助トレ", "浜松トレ",
+        "静岡補助トレ",
+        "東京プログラム"
+      ]
+    },
+    {
+      "id": "SZ",
+      "name": "静岡",
+      "fullName": "静岡",
+      "color": "#e8b931",
+      "geoOrder": 3,
+      "region": "shizuoka"
+    },
+    {
+      "id": "YH",
+      "name": "横浜",
+      "fullName": "横浜",
+      "color": "#7c3aed",
+      "geoOrder": 4,
+      "region": "kanagawa"
+    },
+    {
+      "id": "UT",
+      "name": "栃木",
+      "fullName": "栃木（宇都宮）",
+      "color": "#dc2626",
+      "geoOrder": 5,
+      "region": "utsunomiya",
+      "compatibleOtherPrograms": [
+        "浜松トレ", "浜松PBC", "顧問（浜松）",
+        "静岡PBC", "顧問（静岡）", "静岡補助トレ",
+        "神奈川PBC", "顧問（神奈川）",
+        "東京プログラム"
+      ]
+    }
   ]
 }

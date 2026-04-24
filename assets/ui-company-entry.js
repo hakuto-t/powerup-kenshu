@@ -275,7 +275,10 @@
       const progs = ot.otherPrograms || [];
       for (const p of progs) {
         const cls = badgeClassFor(p.column);
-        parts.push(`<span class="th-badge ${cls}" title="${escapeAttr(p.name)}">${escapeHtml(p.name)}</span>`);
+        const compat = window.Scheduler && window.Scheduler.isOtherProgramCompatible(city, p.name);
+        const stateCls = compat ? 'th-badge-compat' : 'th-badge-incompat';
+        const title = compat ? `${p.name}（L${city.id === 'HL1' ? '1' : city.id === 'HL2' ? '2' : ''}と共存可）` : `${p.name}（共存不可・衝突）`;
+        parts.push(`<span class="th-badge ${cls} ${stateCls}" title="${escapeAttr(title)}">${escapeHtml(p.name)}</span>`);
       }
       return parts.join('');
     };

@@ -497,6 +497,13 @@ main .btn-primary:hover { background: var(--pri2); }
 .th-badge.other.pbc       { background: #fbcfe8; color: #9d174d; }  /* PBC: ピンク */
 .th-badge.other.komon     { background: #e9d5ff; color: #6b21a8; }  /* 顧問: 紫 */
 .th-badge.other.daihyo    { background: #fed7aa; color: #9a3412; }  /* 代表者特別研修: オレンジ */
+/* 共存可/不可の状態表示（現在表示中の都市との関係）*/
+.th-badge-compat   { opacity: 0.45; filter: grayscale(0.3); }   /* 共存可は薄めて目立たせない */
+.th-badge-incompat { outline: 2px solid #dc2626; box-shadow: 0 0 0 1px #fff inset; }  /* 共存不可は赤枠で警告 */
+
+/* カレンダーセル上の他研修バッジも同様に */
+.cal-cell .badge-ot.badge-ot-ok { opacity: 0.5; }
+.cal-cell .badge-ot.badge-ot-ng { background: #fecaca; color: #991b1b; font-weight: 700; }
 
 /* 会社削除ボタン（2段階クリック式） */
 .btn-remove-company {

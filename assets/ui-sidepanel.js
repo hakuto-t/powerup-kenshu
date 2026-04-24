@@ -10,7 +10,7 @@
     // Phase 4: 未選択時の常時サマリー。月内の候補日トップ5をランキング表示。
     // ctx: { cityName, ranked, suggestions, otherConfirmedByDate, monthData, onCellClick, currentMonthLabel }
     renderSummary(el, ctx) {
-      const { cityName, ranked, suggestions, otherConfirmedByDate, monthData, currentMonthLabel } = ctx;
+      const { cityName, ranked, suggestions, otherConfirmedByDate, monthData, currentMonthLabel, city } = ctx;
       if (!ranked || !ranked.length) {
         el.innerHTML = `<div class="sp-empty">
           <p><strong>${escapeHtml(cityName || '')}</strong> ${escapeHtml(currentMonthLabel || '')}の候補日はありません。</p>
@@ -29,7 +29,9 @@
         const rank = i + 1;
         const wd = '日月火水木金土'[new Date(r.date + 'T00:00:00+09:00').getDay()];
         const hasViolation = r.hardViolations && r.hardViolations.length > 0;
-        const other = (r.otherPrograms || []).length;
+        // 共存不可の他研修件数（共存可は警告しない）
+        const incompat = r.incompatibleOtherPrograms || [];
+        const other = incompat.length;
         const ozawaHits = (r.softHits || []).length;
         const conf = otherConfirmedByDate && otherConfirmedByDate[r.date];
         const p = r.participation;
@@ -135,12 +137,20 @@
         </div></div>`);
       }
 
-      // 他研修
+      // 他研修（共存可 / 共存不可 を分けて表示）
       const dayInfo = ctx.monthData?.days?.find(d => d.date === date);
       if (dayInfo && dayInfo.otherPrograms && dayInfo.otherPrograms.length) {
-        parts.push(`<div class="sp-section"><h4>他研修（参加企業の都合要確認）</h4>
-          <div>${dayInfo.otherPrograms.map(p => `<span class="badge-ot" style="margin-right:4px">${escapeHtml(p.name)}</span>`).join('')}</div>
-        </div>`);
+        const split = (root.Scheduler && ctx.city)
+          ? root.Scheduler.splitOtherPrograms(ctx.city, dayInfo.otherPrograms)
+          : { compat: [], incompat: dayInfo.otherPrograms };
+        const parts2 = [];
+        if (split.incompat.length) {
+          parts2.push(`<div style="margin-bottom:6px"><strong style="color:var(--r);font-size:.82rem">⚠️ 共存不可（衝突）</strong><br>${split.incompat.map(p => `<span class="badge-ot badge-ot-ng" style="margin-right:4px">${escapeHtml(p.name)}</span>`).join('')}</div>`);
+        }
+        if (split.compat.length) {
+          parts2.push(`<div><strong style="color:var(--tx3);font-size:.82rem">✓ 共存可</strong><br>${split.compat.map(p => `<span class="badge-ot badge-ot-ok" style="margin-right:4px">${escapeHtml(p.name)}</span>`).join('')}</div>`);
+        }
+        parts.push(`<div class="sp-section"><h4>他研修</h4>${parts2.join('')}</div>`);
       }
 
       // アクション
