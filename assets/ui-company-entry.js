@@ -201,13 +201,32 @@
           ctx.onStatusToggle && ctx.onStatusToggle(btn.dataset.company, btn.dataset.city, btn.dataset.date, next);
         });
       });
-      // 会社削除（管理者）
+      // 会社削除（管理者）— 誤タップ防止のため2段階クリック方式
+      // 1回目: 警告状態へ遷移（赤く脈打ち、「もう一度押すと削除」と表示）
+      // 2回目(3秒以内): 実削除を実行。タイムアウトで自動リセット。
+      const ARM_DURATION_MS = 3000;
+      const disarm = (btn) => {
+        btn.classList.remove('armed');
+        const label = btn.querySelector('.btn-remove-label');
+        if (label) label.textContent = '削除';
+        if (btn._armTimer) { clearTimeout(btn._armTimer); btn._armTimer = null; }
+      };
       container.querySelectorAll('[data-action="remove-company"]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const name = btn.dataset.name || 'この会社';
-          if (confirm(`「${name}」を全都市から削除します。よろしいですか？`)) {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (btn.classList.contains('armed')) {
+            disarm(btn);
             ctx.onRemove && ctx.onRemove(btn.dataset.company);
+            return;
           }
+          // 他の削除ボタンが armed 状態なら先にリセット（同時に複数 armed にしない）
+          container.querySelectorAll('.btn-remove-company.armed').forEach(other => {
+            if (other !== btn) disarm(other);
+          });
+          btn.classList.add('armed');
+          const label = btn.querySelector('.btn-remove-label');
+          if (label) label.textContent = 'もう一度押すと削除';
+          btn._armTimer = setTimeout(() => disarm(btn), ARM_DURATION_MS);
         });
       });
     },
@@ -235,7 +254,7 @@
                 const s = Scheduler.getStatusFor(c.id, city.id, d.date, assignments);
                 return `<td class="status-picker-cell">${renderStatusPicker(s, { companyId: c.id, cityId: city.id, date: d.date })}</td>`;
               }).join('')}
-              ${isAdmin ? `<td class="row-controls"><button data-action="remove-company" data-company="${c.id}" data-name="${escapeAttr(c.name)}" title="削除">✕</button></td>` : ''}
+              ${isAdmin ? `<td class="row-controls"><button class="btn-remove-company" data-action="remove-company" data-company="${c.id}" data-name="${escapeAttr(c.name)}" title="削除"><span class="btn-remove-icon">🗑</span><span class="btn-remove-label">削除</span></button></td>` : ''}
             </tr>`).join('')}
         </tbody>
       </table>`;

@@ -412,6 +412,34 @@ main .btn-primary:hover { background: var(--pri2); }
 }
 .city-group-body .row-controls button:hover { color: var(--r); }
 
+/* 会社削除ボタン（2段階クリック式） */
+.btn-remove-company {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 10px; border-radius: 14px; cursor: pointer;
+  background: #fff; border: 1px solid #fecaca; color: #b91c1c;
+  font-size: 0.78rem; font-weight: 600; line-height: 1;
+  white-space: nowrap; transition: all .15s ease;
+}
+.btn-remove-company .btn-remove-icon { font-size: 0.9rem; }
+.btn-remove-company:hover {
+  background: #fef2f2; border-color: #ef4444; color: #b91c1c;
+}
+.btn-remove-company.armed {
+  background: #ef4444; border-color: #dc2626; color: #fff;
+  padding: 5px 14px;
+  animation: btn-remove-armed-pulse 0.9s ease-in-out infinite;
+}
+.btn-remove-company.armed:hover {
+  background: #dc2626; border-color: #b91c1c; color: #fff;
+}
+@keyframes btn-remove-armed-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55); }
+  50%      { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+}
+.city-group-body .row-controls .btn-remove-company { color: #b91c1c; }
+.city-group-body .row-controls .btn-remove-company:hover { color: #b91c1c; }
+.city-group-body .row-controls .btn-remove-company.armed { color: #fff; }
+
 @media (max-width: 560px) {
   .cg-progress { display: none; }
   .city-group-head { padding: 10px 12px; gap: 8px; }
