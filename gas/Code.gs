@@ -389,6 +389,7 @@ function maintenanceHandler(body) {
   if (!verifyAdmin(body.adminPw)) throw new Error('admin auth failed');
   const op = String(body.op || '');
   if (op === 'cleanupL2Duplicates') return cleanupL2Duplicates();
+  if (op === 'addHL2ShiratoYusuke') return addHL2ShiratoYusuke();
   throw new Error('unknown maintenance op: ' + op);
 }
 
@@ -436,4 +437,60 @@ function cleanupL2Duplicates() {
 
   Logger.log('cleanupL2Duplicates done. companies=' + targets.map(function(t){return t.name;}).join(',') + ' orphanStatusesRemoved=' + orphanRemoved);
   return { ok: true, removed: targets.length, orphanStatusesRemoved: orphanRemoved, newVersion: state.version };
+}
+
+/**
+ * 【一回限り実行用】浜松L2 に 白都・悠資 を追加し、HL1 のスケジュールをそのままコピーする。
+ * 梅原と合わせて L2 は 3名体制になる。
+ *   1. companies[白都,悠資] の cityParticipation に 'HL2' を追加（重複追加しない）
+ *   2. 既存の HL1 assignments の statuses（白都・悠資分）を HL2 assignments へコピー
+ *      - 対応月の HL2 assignment がなければ新規作成
+ *      - 既に同じ companyId+date の HL2 status があれば上書き
+ *   3. 梅原の HL2 エントリは変更しない
+ */
+function addHL2ShiratoYusuke() {
+  const state = loadState(2026);
+  const targets = state.companies.filter(function(c) { return c.name === '白都' || c.name === '悠資'; });
+  if (targets.length === 0) {
+    Logger.log('addHL2ShiratoYusuke: 対象会社なし');
+    return { ok: false, error: 'target companies not found' };
+  }
+  const targetIds = targets.map(function(c) { return c.id; });
+
+  // 1) cityParticipation に HL2 を追加
+  var companiesAdded = 0;
+  targets.forEach(function(c) {
+    c.cityParticipation = c.cityParticipation || [];
+    if (c.cityParticipation.indexOf('HL2') < 0) {
+      c.cityParticipation.push('HL2');
+      companiesAdded++;
+    }
+  });
+
+  // 2) HL1 → HL2 statuses コピー
+  var copied = 0;
+  var overwrote = 0;
+  const hl1Assigns = state.assignments.filter(function(a) { return a.cityId === 'HL1'; });
+  hl1Assigns.forEach(function(hl1) {
+    var srcStatuses = (hl1.statuses || []).filter(function(s) { return targetIds.indexOf(s.companyId) >= 0; });
+    if (srcStatuses.length === 0) return;
+    var hl2 = state.assignments.find(function(a) { return a.cityId === 'HL2' && a.year === hl1.year && a.month === hl1.month; });
+    if (!hl2) {
+      hl2 = { cityId: 'HL2', year: hl1.year, month: hl1.month, selectedDate: null, confirmed: false, statuses: [] };
+      state.assignments.push(hl2);
+    }
+    srcStatuses.forEach(function(src) {
+      var idx = hl2.statuses.findIndex(function(s) { return s.companyId === src.companyId && s.date === src.date; });
+      var entry = { companyId: src.companyId, date: src.date, status: src.status, updatedAt: src.updatedAt || new Date().toISOString() };
+      if (idx >= 0) { hl2.statuses[idx] = entry; overwrote++; }
+      else { hl2.statuses.push(entry); copied++; }
+    });
+  });
+
+  state.version = (state.version || 0) + 1;
+  state.lastUpdated = new Date().toISOString();
+  saveState(2026, state);
+
+  Logger.log('addHL2ShiratoYusuke done. companiesAdded=' + companiesAdded + ' copied=' + copied + ' overwrote=' + overwrote);
+  return { ok: true, companiesAdded: companiesAdded, copied: copied, overwrote: overwrote, newVersion: state.version };
 }
