@@ -466,11 +466,13 @@ main .btn-primary:hover { background: var(--pri2); }
 .city-group-body td.col-company { z-index: 2; }
 
 /* 日付ヘッダの他研修・祝日バッジ */
-.th-badges { display: flex; justify-content: center; gap: 2px; margin-top: 2px; }
+.th-badges { display: flex; flex-direction: column; align-items: center; gap: 2px; margin-top: 3px; }
 .th-badge {
   display: inline-block;
   font-size: 9px;
   line-height: 1;
+  white-space: nowrap;
+  max-width: 100%;
   padding: 2px 4px;
   border-radius: 3px;
   font-weight: 700;
@@ -478,6 +480,13 @@ main .btn-primary:hover { background: var(--pri2); }
 }
 .th-badge.holiday { background: #fecaca; color: #991b1b; }
 .th-badge.other   { background: #fde68a; color: #854d0e; }
+/* 他研修カテゴリ別の色分け */
+.th-badge.other.tokyo     { background: #fde68a; color: #854d0e; }  /* 東京プログラム: 黄 */
+.th-badge.other.hamamatsu { background: #c7d2fe; color: #3730a3; }  /* 浜松プログラム: 青 */
+.th-badge.other.shizuoka  { background: #bae6fd; color: #075985; }  /* 静岡プログラム: 水色 */
+.th-badge.other.pbc       { background: #fbcfe8; color: #9d174d; }  /* PBC: ピンク */
+.th-badge.other.komon     { background: #e9d5ff; color: #6b21a8; }  /* 顧問: 紫 */
+.th-badge.other.daihyo    { background: #fed7aa; color: #9a3412; }  /* 代表者特別研修: オレンジ */
 
 /* 会社削除ボタン（2段階クリック式） */
 .btn-remove-company {

@@ -256,7 +256,16 @@
       return '';
     };
 
-    // 他研修・祝日バッジ
+    // 他研修・祝日バッジ（名称をそのまま表示）
+    const badgeClassFor = (col) => {
+      if (col === '東京プログラム') return 'other tokyo';
+      if (col === '浜松プログラム') return 'other hamamatsu';
+      if (col === '静岡プログラム') return 'other shizuoka';
+      if (col === 'PBC') return 'other pbc';
+      if (col === '顧問') return 'other komon';
+      if (col === '代表者特別研修') return 'other daihyo';
+      return 'other';
+    };
     const badgeOf = (date) => {
       const ot = (otherTrainings && otherTrainings[date]) || {};
       const parts = [];
@@ -264,9 +273,9 @@
         parts.push(`<span class="th-badge holiday" title="${escapeAttr(ot.holiday)}">祝</span>`);
       }
       const progs = ot.otherPrograms || [];
-      if (progs.length) {
-        const title = progs.map(p => p.name).join(' / ');
-        parts.push(`<span class="th-badge other" title="${escapeAttr(title)}">他</span>`);
+      for (const p of progs) {
+        const cls = badgeClassFor(p.column);
+        parts.push(`<span class="th-badge ${cls}" title="${escapeAttr(p.name)}">${escapeHtml(p.name)}</span>`);
       }
       return parts.join('');
     };
