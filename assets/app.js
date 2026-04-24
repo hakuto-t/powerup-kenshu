@@ -2,7 +2,7 @@
 (function (root) {
   'use strict';
 
-  const CLIENT_VERSION = 'v5.10';  // 古いブラウザキャッシュを検出するためのクライアント版。JSを変更したら更新すること
+  const CLIENT_VERSION = 'v5.11';  // 古いブラウザキャッシュを検出するためのクライアント版。JSを変更したら更新すること
   const POLL_INTERVAL_MS = 3000;   // 3秒。本番運用でタップが消えて見える体感を抑えるため短めにする
   const ADMIN_SESSION_MS = 30 * 60 * 1000; // 管理者セッション有効期限 30分
   console.log('[powerup-kenshu] client version:', CLIENT_VERSION);
@@ -740,7 +740,7 @@
         btn.classList.add('is-loading');
         App.showOverlay('PDFを生成中...');
         try {
-          await ExportPDF.exportYearSchedule(App.state, App.cities);
+          await ExportPDF.exportYearSchedule(App.state, App.cities, App.ozawaRange);
           App.toast('PDFを保存しました', 'success');
         } catch (e) {
           console.error(e);
