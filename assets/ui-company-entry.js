@@ -96,6 +96,14 @@
 
     renderCompaniesTable(container, ctx) {
       const { companies, cities, assignments, isAdmin, currentMonth, currentCityId } = ctx;
+
+      // 再描画の前に各都市グループの横スクロール位置を退避（描画後に復元する）
+      const scrollMemo = new Map();
+      container.querySelectorAll('details.city-group').forEach(d => {
+        const body = d.querySelector('.city-group-body');
+        if (body) scrollMemo.set(d.dataset.city, body.scrollLeft);
+      });
+
       if (!companies.length) {
         container.innerHTML = '<div class="sp-empty">まだ会社が登録されていません。ヘッダーの「＋ 自分の会社を追加」で登録してください。</div>';
         return;
@@ -153,6 +161,14 @@
       }).join('');
 
       container.innerHTML = toolbar + '<div class="city-groups">' + groupsHtml + '</div>';
+
+      // 退避しておいた横スクロール位置を復元（○×▽押下で左端に戻るのを防ぐ）
+      container.querySelectorAll('details.city-group').forEach(d => {
+        const prev = scrollMemo.get(d.dataset.city);
+        if (prev == null) return;
+        const body = d.querySelector('.city-group-body');
+        if (body) body.scrollLeft = prev;
+      });
 
       // 開閉トグル → 内部状態を同期
       container.querySelectorAll('details.city-group').forEach(d => {
