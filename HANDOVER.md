@@ -1,6 +1,6 @@
 # HANDOVER.md — エスト パワーアップ研修 年間日程調整ツール
 
-最終更新：2026-04-24（v5.1 MANUAL_ADDITIONS追加）
+最終更新：2026-04-25（v5.11 + 自動バックアップ運用開始）
 
 本ツールは「2026年8月〜2027年7月・5都市・全11回」の小澤さん研修について、各社代表が○△×を持ち寄って日程調整するWebアプリ。URLを配布するだけで誰でも使える／完全自動保存／リアルタイム同期。
 
@@ -12,9 +12,10 @@
 |---|---|---|
 | **本番ツールURL**（各社代表に配布） | https://hakuto-t.github.io/powerup-kenshu/ | GitHub Pages 公開中 |
 | GitHub リポジトリ | https://github.com/hakuto-t/powerup-kenshu | public（会社名のみで機密度低） |
-| GAS Web App URL | https://script.google.com/macros/s/AKfycbzatRCFDFbBa2y3BnUocOthuS5P0K3jMYH7pc9jt6FZZ9diX2O2oOt8Akam9laFauQw/exec | api.jsに埋込済、v5 現行 |
+| GAS Web App URL | https://script.google.com/macros/s/AKfycbzatRCFDFbBa2y3BnUocOthuS5P0K3jMYH7pc9jt6FZZ9diX2O2oOt8Akam9laFauQw/exec | api.jsに埋込済、**@12 が現行デプロイ** |
 | GAS エディタ | https://script.google.com/d/1PncjHDxTCCBlzDyBE6E2sYvVpl5rD1FSr88-4aYXlH5mTDnVY8Wq9H9w/edit | 個人アカウント所有 |
-| 状態保存スプシ | `エスト_パワーアップ研修_状態_2026年度` | GAS `oneTimeSetup()` が自動生成、STATE_SHEET プロパティにID保存 |
+| **状態保存スプシ** | https://docs.google.com/spreadsheets/d/1m1V7TBUBrswJWJS8POeakGoeLQcM12QPA9Ez0XHSzTE/edit | base64チャンク化JSON格納、**手動編集禁止** |
+| **自動バックアップフォルダ** | Drive `エスト_パワーアップ研修_state_backups/`（8910hakuto@gmail.com のマイドライブ） | 毎日 JST 03:00 実行、30日ローリング |
 | 他研修スプシ 2026年 | `1eMVgggO6lXiRs4pbTRLch6Wg4CpibPmdqYz0syXGS7I` | **v5 で接続切断**、`_snapshot_other_trainings.py` で再取得する時のみ参照 |
 | 他研修スプシ 2027年 | `1fZovD5c-Pn3eggwU_kYrqEF_d_lOHuOkqHEnpnwRRck` | 同上 |
 | ローカル開発 | `C:\Users\hakut\Dropbox\My PC (DESKTOP-2NB6VKP)\Desktop\CURSOR_PJ\エスト_パワーアップ研修日程調整ツール\` | Dropbox同期 |
@@ -288,6 +289,64 @@ clasp open                                 # GAS エディタを開く
 | 2026-04-23 | v4 修正（検証エージェント指摘） | unconfirm 時に `selectedDate` も null リセット、state 完全クリーン化 |
 | 2026-04-23 | v5 大型リファクタ | (1) 代表者名24名事前登録 / (2) 使い方モーダル追加（PC苦手な司会者向け3ステップ） / (3) 参加会社一覧を都市別アコーディオン化 / (4) 他研修スプシ接続切断 → JSONスナップショット運用 / (5) フォルダ日本語化（docs→ドキュメント、samples→サンプル、README_フォルダ構成.md 追加） |
 | 2026-04-24 | 代表者特別研修3日分追加 | 2026-08-10(月) / 09-25(金) / 10-19(月) 東京某所を他研修として追加。合わせて `_snapshot_other_trainings.py` に `MANUAL_ADDITIONS` 機構を実装し、スナップショット再実行時にも手動追加分が自動マージされる恒久運用に変更（§5-7） |
+| 2026-04-24 | v5.2-v5.5 安定性強化 | (1) 横スクロール位置の復元 (2) 連続タップ race condition 修正 (3) 会社削除ボタンを2段階クリック式に (4) 保存を差分エンドポイントに切替（blind overwrite 廃止、concurrent edit 安全化） (5) キャッシュ回避・save 廃止・仮置きに戻す失敗の可視化 (6) セル上限対策 base64 チャンク化・bfcache 対策 (7) mutation 応答軽量化・不要な refetch 撤去でフリッカー抑制 |
+| 2026-04-24 | v5.6 機能拡張 | (1) 日別OK数ヒートマップ（緑グラデ3段） (2) 他研修・祝日バッジを日付ヘッダに表示 (3) 候補日ランキングをサイドパネルに常時表示 (4) 浜松L2から白都・悠資を一旦切り離し(cleanupL2Duplicates) (5) 他研修15件の日程変更 (6) 調整さんCSV取込（浜松L1 8〜12月、718件）→ `batchUpdateStatus` 1リクエスト化（3秒） |
+| 2026-04-25 | v5.7 他研修バッジを名称表示 | 「他」1文字→研修名そのまま。カテゴリ別カラー（東京=黄/浜松=青/静岡=水色/PBC=ピンク/顧問=紫/代表者=橙） |
+| 2026-04-25 | Phase 6 誤適用 revert | 「全て2027年」の指示を2026年日付に適用していた3件を revert（2026-08-16/11-08/12-13 削除、2026-08-18/12-15 の東京プログラム復元） |
+| 2026-04-25 | v5.8 詳細パネル戻るボタン | 個別日付詳細から候補日ランキングに戻る導線を追加 |
+| 2026-04-25 | 浜松L2に白都・悠資を再追加 | `addHL2ShiratoYusuke` マンテナンスで HL1 から 401件 statuses を HL2 へコピー。L2は 白都/悠資/梅原 の3名体制に |
+| 2026-04-25 | v5.9-v5.10 他研修共存可否ルール | cities.json に `compatibleOtherPrograms` 追加（5都市分）。Scheduler の S7 ペナルティを共存不可のみに限定。カレンダー・サイドパネル・会社一覧ヘッダのバッジを共存可/不可で色分け |
+| 2026-04-25 | v5.11 PDF出力バグ修正 | `ExportPDF.exportYearSchedule` の第3引数 `ozawaRange` 未渡しで "Cannot read properties of undefined" クラッシュを修正 |
+| 2026-04-25 | Drive 自動バックアップ運用開始 | GAS に `autoBackupStateToDrive` + トリガー `setupDailyAutoBackupTrigger` を実装。毎日 JST 03:00 に state を Drive へ JSON 保存、30日ローリング。保存先フォルダ：`エスト_パワーアップ研修_state_backups/`（8910hakuto@gmail.com マイドライブ）。GAS @12 にデプロイ済み |
+
+---
+
+## 10.5. 他研修共存可否ルール（v5.9 追加）
+
+`assets/data/cities.json` の `compatibleOtherPrograms` で都市別に定義。ここに含まれる他研修は同日でもOK（S7ペナルティ対象外・UI上は薄色）、含まれないものは共存不可（赤枠警告＋ペナルティ）。
+
+| 都市 | 自地域NG | 共存可リスト |
+|---|---|---|
+| 浜松L1 | 浜松PBC/顧問（浜松）、浜松トレ、東京プログラム | 栃木・神奈川・静岡PBC/顧問、浜松補助トレ、静岡補助トレ |
+| 浜松L2 | 浜松PBC/顧問（浜松）、静岡PBC/顧問（静岡） | 栃木・神奈川PBC/顧問、浜松トレ、浜松補助トレ、静岡補助トレ、東京プログラム |
+| 静岡SZ | 静岡PBC/顧問（静岡） | 栃木・神奈川・浜松PBC/顧問、浜松トレ、浜松補助トレ、静岡補助トレ、東京プログラム |
+| 横浜YH | 神奈川PBC/顧問（神奈川） | 栃木・浜松・静岡PBC/顧問、浜松トレ、浜松補助トレ、静岡補助トレ、東京プログラム |
+| 栃木UT | 栃木PBC/顧問（栃木）、浜松補助トレ | 神奈川・浜松・静岡PBC/顧問、浜松トレ、静岡補助トレ、東京プログラム |
+
+※ 東京PBC・代表者特別研修は全都市共通NG。
+
+---
+
+## 10.6. 自動バックアップ運用（2026-04-25 開始）
+
+### スケジュール
+- 毎日 JST **03:00** に GAS トリガーが `autoBackupStateToDrive` を実行
+- 保存先：Drive `エスト_パワーアップ研修_state_backups/`（8910hakuto@gmail.com のマイドライブ）
+- 形式：`state_YYYY-MM-DD_HHMMSS.json`（base64展開済みstateとメタ情報）
+- 保持：**30日ローリング**（それより古いファイルは自動削除）
+
+### 運用コマンド（curl/Python POST）
+```bash
+# 臨時バックアップ
+-d '{"action":"maintenance","op":"autoBackupNow","adminPw":"1234"}'
+
+# バックアップ一覧
+-d '{"action":"maintenance","op":"listBackups","adminPw":"1234"}'
+
+# システム情報（スプシURL等）
+-d '{"action":"maintenance","op":"getInfo","adminPw":"1234"}'
+
+# 自動バックアップを停止
+-d '{"action":"maintenance","op":"removeAutoBackup","adminPw":"1234"}'
+
+# 自動バックアップを再セットアップ
+-d '{"action":"maintenance","op":"setupAutoBackup","adminPw":"1234"}'
+```
+
+### 復元手順（必要になった場合）
+1. Drive のバックアップフォルダから復元したい日のJSONをダウンロード
+2. GAS エディタで一時的に `restoreFromBackup(jsonText)` を作成（`state` を `saveState(2026, state)` で書き戻す）
+3. 実行 → 全ユーザーに Ctrl+F5 を依頼
 
 ---
 
@@ -305,8 +364,10 @@ clasp open                                 # GAS エディタを開く
 
 - [ ] **本番URL** https://hakuto-t.github.io/powerup-kenshu/ をブラウザで開いて動作確認
 - [ ] **管理者ログイン** `1234` で入れるか、必要なら強いパスワードに変更（§2）
-- [ ] **状態保存スプシ** を GASエディタの「プロジェクトの設定」→「スクリプトプロパティ」の `STATE_SHEET` から開き、バックアップ手順を共有
-- [ ] **共有ドライブへの移動**（推奨）：状態スプシを個人MyDriveから組織の共有ドライブへ移動すると単一障害点を除去可能
+- [ ] **状態保存スプシ** https://docs.google.com/spreadsheets/d/1m1V7TBUBrswJWJS8POeakGoeLQcM12QPA9Ez0XHSzTE/edit を開けるか確認（編集は禁止、閲覧のみ）
+- [ ] **自動バックアップ動作確認** Drive `エスト_パワーアップ研修_state_backups/` に日次ファイルが積み上がっているかチェック（§10.6）
+- [ ] **共有ドライブへの移動**（推奨）：状態スプシとバックアップフォルダを個人MyDriveから組織の共有ドライブへ移動すると単一障害点を除去可能
 - [ ] **会社リスト** 4-2 のリストと実運用リストの差分確認
 - [ ] **年度切替時期**（2027-08頃）のカレンダー登録
 - [ ] **MTG運用ルール** 1日1都市を共有（GASクォータ対策）
+- [ ] **他研修共存可否ルール**（§10.5）が実際の運用と合っているか年1回程度レビュー
