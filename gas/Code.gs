@@ -52,6 +52,7 @@ function doPost(e) {
       if (action === 'save') throw new Error('このバージョンは古いため保存できません。ブラウザを強制リロード（Ctrl+F5）してください。');
       else if (action === 'addCompany') data = addCompanyHandler(body);
       else if (action === 'updateStatus') data = updateStatusHandler(body);
+      else if (action === 'batchUpdateStatus') data = batchUpdateStatusHandler(body);
       else if (action === 'confirm') data = confirmHandler(body);
       else if (action === 'removeCompany') data = removeCompanyHandler(body);
       else if (action === 'setPassword') data = setPasswordHandler(body);
@@ -204,6 +205,53 @@ function updateStatusHandler(body) {
   state.version = (state.version || 0) + 1;
   saveState(year, state);
   return liteOk(state);
+}
+
+/**
+ * バッチで多数の updateStatus を一括適用する。CSV インポート等の大量書き込み用。
+ * LockService を1回だけ取得して、loadState→全件更新→saveState を1トランザクションで実行。
+ * body: { action: 'batchUpdateStatus', year, updates: [{companyId, cityId, ym, date, status}, ...] }
+ */
+function batchUpdateStatusHandler(body) {
+  const year = +(body.year || 2026);
+  const updates = body.updates || [];
+  if (!Array.isArray(updates)) throw new Error('updates must be array');
+  if (updates.length === 0) return { ok: true, applied: 0, skipped: 0, version: 0 };
+  if (updates.length > 2000) throw new Error('batch too large (max 2000)');
+
+  const state = loadState(year);
+  let applied = 0;
+  let skipped = 0;
+  const now = new Date().toISOString();
+
+  for (let i = 0; i < updates.length; i++) {
+    const u = updates[i];
+    if (!u || !u.companyId || typeof u.companyId !== 'string' || u.companyId.length > 100) { skipped++; continue; }
+    if (VALID_CITY_IDS.indexOf(u.cityId) < 0) { skipped++; continue; }
+    if (!/^20\d{2}-(0[1-9]|1[0-2])$/.test(u.ym)) { skipped++; continue; }
+    if (!/^20\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(u.date)) { skipped++; continue; }
+    if (u.status && VALID_STATUSES.indexOf(u.status) < 0) { skipped++; continue; }
+
+    const parts = u.ym.split('-');
+    const y = +parts[0], m = +parts[1];
+    let a = state.assignments.find(function(x) { return x.cityId === u.cityId && x.year === y && x.month === m; });
+    if (!a) {
+      a = { cityId: u.cityId, year: y, month: m, selectedDate: null, confirmed: false, statuses: [] };
+      state.assignments.push(a);
+    }
+    const idx = a.statuses.findIndex(function(s) { return s.companyId === u.companyId && s.date === u.date; });
+    if (u.status === 'UNKNOWN' || !u.status) {
+      if (idx >= 0) a.statuses.splice(idx, 1);
+    } else {
+      const entry = { companyId: u.companyId, date: u.date, status: u.status, updatedAt: now };
+      if (idx >= 0) a.statuses[idx] = entry; else a.statuses.push(entry);
+    }
+    applied++;
+  }
+  state.lastUpdated = now;
+  state.version = (state.version || 0) + 1;
+  saveState(year, state);
+  return { ok: true, applied: applied, skipped: skipped, version: state.version, lastUpdated: now };
 }
 
 function confirmHandler(body) {
