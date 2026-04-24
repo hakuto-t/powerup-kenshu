@@ -390,7 +390,32 @@ function maintenanceHandler(body) {
   const op = String(body.op || '');
   if (op === 'cleanupL2Duplicates') return cleanupL2Duplicates();
   if (op === 'addHL2ShiratoYusuke') return addHL2ShiratoYusuke();
+  if (op === 'getInfo') return getSystemInfo();
+  if (op === 'autoBackupNow') return autoBackupStateToDrive();
+  if (op === 'setupAutoBackup') return setupDailyAutoBackupTrigger();
+  if (op === 'removeAutoBackup') return removeDailyAutoBackupTrigger();
+  if (op === 'listBackups') return listDriveBackups();
   throw new Error('unknown maintenance op: ' + op);
+}
+
+/**
+ * システム情報を返す（スプシURLなど）。
+ */
+function getSystemInfo() {
+  const props = PropertiesService.getScriptProperties();
+  const sheetId = props.getProperty('STATE_SHEET');
+  const backupFolderId = props.getProperty('BACKUP_FOLDER_ID');
+  const triggers = ScriptApp.getProjectTriggers()
+    .filter(function(t) { return t.getHandlerFunction() === 'autoBackupStateToDrive'; });
+  return {
+    ok: true,
+    sheetId: sheetId,
+    sheetUrl: sheetId ? ('https://docs.google.com/spreadsheets/d/' + sheetId + '/edit') : null,
+    backupFolderId: backupFolderId,
+    backupFolderUrl: backupFolderId ? ('https://drive.google.com/drive/folders/' + backupFolderId) : null,
+    autoBackupTriggerCount: triggers.length,
+    autoBackupNextRun: triggers.length > 0 ? '設定済み' : '未設定',
+  };
 }
 
 /**
@@ -493,4 +518,136 @@ function addHL2ShiratoYusuke() {
 
   Logger.log('addHL2ShiratoYusuke done. companiesAdded=' + companiesAdded + ' copied=' + copied + ' overwrote=' + overwrote);
   return { ok: true, companiesAdded: companiesAdded, copied: copied, overwrote: overwrote, newVersion: state.version };
+}
+
+// ======================================================================
+// 自動バックアップ（Drive保存・30日ローリング）
+// ======================================================================
+
+const BACKUP_FOLDER_NAME = 'エスト_パワーアップ研修_state_backups';
+const BACKUP_RETAIN_DAYS = 30;
+
+/**
+ * バックアップ保存用 Drive フォルダを取得（なければ作成）。
+ * スクリプトプロパティ BACKUP_FOLDER_ID にキャッシュ。
+ */
+function getOrCreateBackupFolder() {
+  const props = PropertiesService.getScriptProperties();
+  let folderId = props.getProperty('BACKUP_FOLDER_ID');
+  if (folderId) {
+    try {
+      return DriveApp.getFolderById(folderId);
+    } catch (e) {
+      Logger.log('既存 BACKUP_FOLDER_ID を開けず再生成: ' + e.message);
+    }
+  }
+  const folder = DriveApp.createFolder(BACKUP_FOLDER_NAME);
+  props.setProperty('BACKUP_FOLDER_ID', folder.getId());
+  Logger.log('バックアップフォルダ生成: ' + folder.getId() + ' (' + folder.getUrl() + ')');
+  return folder;
+}
+
+/**
+ * 現在の state を JSON で Drive に保存。30日超の古いバックアップを削除。
+ * トリガーから毎日自動実行される想定。手動実行もOK。
+ */
+function autoBackupStateToDrive() {
+  const t0 = new Date().getTime();
+  const state = loadState(2026);
+  const folder = getOrCreateBackupFolder();
+
+  const now = new Date();
+  const tz = 'Asia/Tokyo';
+  const ts = Utilities.formatDate(now, tz, 'yyyy-MM-dd_HHmmss');
+  const payload = {
+    backedUpAt: now.toISOString(),
+    year: 2026,
+    state: state,
+  };
+  const fileName = 'state_' + ts + '.json';
+  const file = folder.createFile(fileName, JSON.stringify(payload), 'application/json');
+  Logger.log('backup saved: ' + fileName + ' (' + file.getSize() + ' bytes)');
+
+  // 古いバックアップの削除（BACKUP_RETAIN_DAYS日より前）
+  const cutoff = new Date(now.getTime() - BACKUP_RETAIN_DAYS * 86400000);
+  const files = folder.getFilesByType('application/json');
+  let removed = 0;
+  while (files.hasNext()) {
+    const f = files.next();
+    if (f.getId() === file.getId()) continue;
+    if (f.getDateCreated().getTime() < cutoff.getTime()) {
+      f.setTrashed(true);
+      removed++;
+    }
+  }
+
+  const dt = (new Date().getTime() - t0) / 1000;
+  return {
+    ok: true,
+    fileName: fileName,
+    fileId: file.getId(),
+    fileUrl: file.getUrl(),
+    sizeBytes: file.getSize(),
+    version: state.version,
+    removedOldBackups: removed,
+    elapsedSec: dt,
+  };
+}
+
+/**
+ * 毎日 JST 午前3時に autoBackupStateToDrive を実行するトリガーを作成。
+ * 既存の autoBackupStateToDrive トリガーは事前に削除。
+ */
+function setupDailyAutoBackupTrigger() {
+  removeDailyAutoBackupTrigger();
+  const trigger = ScriptApp.newTrigger('autoBackupStateToDrive')
+    .timeBased()
+    .atHour(3)
+    .everyDays(1)
+    .inTimezone('Asia/Tokyo')
+    .create();
+  // 登録後、初回のバックアップを即座に実行
+  const first = autoBackupStateToDrive();
+  return {
+    ok: true,
+    triggerId: trigger.getUniqueId(),
+    schedule: '毎日 JST 03:00 に autoBackupStateToDrive を実行',
+    firstBackup: first,
+  };
+}
+
+function removeDailyAutoBackupTrigger() {
+  const triggers = ScriptApp.getProjectTriggers();
+  let removed = 0;
+  triggers.forEach(function(t) {
+    if (t.getHandlerFunction() === 'autoBackupStateToDrive') {
+      ScriptApp.deleteTrigger(t);
+      removed++;
+    }
+  });
+  return { ok: true, removedTriggers: removed };
+}
+
+/**
+ * Drive 内のバックアップ一覧を返す。
+ */
+function listDriveBackups() {
+  const props = PropertiesService.getScriptProperties();
+  const folderId = props.getProperty('BACKUP_FOLDER_ID');
+  if (!folderId) return { ok: true, folderExists: false, backups: [] };
+  const folder = DriveApp.getFolderById(folderId);
+  const files = folder.getFilesByType('application/json');
+  const list = [];
+  while (files.hasNext()) {
+    const f = files.next();
+    list.push({
+      name: f.getName(),
+      id: f.getId(),
+      url: f.getUrl(),
+      size: f.getSize(),
+      created: Utilities.formatDate(f.getDateCreated(), 'Asia/Tokyo', 'yyyy-MM-dd HH:mm:ss'),
+    });
+  }
+  list.sort(function(a, b) { return b.name.localeCompare(a.name); });
+  return { ok: true, folderExists: true, folderUrl: folder.getUrl(), count: list.length, backups: list };
 }
