@@ -49,6 +49,10 @@
       return postJson({ action: 'addCompany', year: FISCAL_YEAR, company });
     },
 
+    async removeCompany(companyId, adminPw) {
+      return postJson({ action: 'removeCompany', year: FISCAL_YEAR, companyId, adminPw });
+    },
+
     async updateStatus(payload) {
       return postJson({ action: 'updateStatus', year: FISCAL_YEAR, ...payload });
     },

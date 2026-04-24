@@ -90,25 +90,25 @@
     },
 
     async persist() {
+      // ※ 全体保存（saveState）はもはや使わない：他ユーザーの同時編集を潰してしまうため。
+      //   各操作は差分エンドポイント（addCompany/removeCompany/updateStatus/confirm）で送る。
+      //   万一バックエンド未接続時の保険として、ローカル保存だけは残す。
       App.saveLocal();
-      if (root.Api.hasBackend()) {
-        try {
-          const res = await root.Api.saveState(App.state);
-          if (res && res.state) {
-            // 連続で ○×▽ を押すとレスポンスが順不同で返り、古い state で上書きして
-            // 直前のクリックが消える race condition が起きるため、レスポンスの version が
-            // 手元より前進しているときだけ反映する。後退・同値の場合はスキップ。
-            const localV = App.state.version || 0;
-            const serverV = res.state.version || 0;
-            if (serverV > localV) {
-              App.state = res.state;
-              App.saveLocal();
-            }
-          }
-        } catch (e) {
-          App.toast('保存エラー（ローカルには保存済み）: ' + e.message, 'warn');
-        }
+    },
+
+    // サーバーから返った state をクライアント側に反映するか判断する共通ヘルパー。
+    // レスポンスが順不同で返っても古い state で新しいローカル state を潰さないよう、
+    // 受け取った state の version が手元より前進しているときだけ採用する。
+    _applyServerResponse(res) {
+      if (!res || !res.state) return false;
+      const localV = App.state.version || 0;
+      const serverV = res.state.version || 0;
+      if (serverV > localV) {
+        App.state = res.state;
+        App.saveLocal();
+        return true;
       }
+      return false;
     },
 
     // 月データ構築：フロント側 other-trainings.json + ozawa-range.json から計算する（v5以降、他研修スプシからは切断）。
@@ -402,8 +402,9 @@
     },
 
     // ------- 操作系 -------
-    updateStatus(companyId, cityId, date, next) {
+    async updateStatus(companyId, cityId, date, next) {
       const [y, m] = [+date.slice(0, 4), +date.slice(5, 7)];
+      // 1) ローカル楽観更新（即座にUIへ反映）
       const a = App.ensureAssignment(cityId, y, m);
       const idx = a.statuses.findIndex(s => s.companyId === companyId && s.date === date);
       if (next === 'UNKNOWN') {
@@ -415,11 +416,20 @@
       }
       App.state.lastUpdated = new Date().toISOString();
       App.state.version = (App.state.version || 0) + 1;
-      App.persist();
+      App.saveLocal();
       App.renderAll();
+      // 2) サーバーには差分のみ送る（全上書きしない → 他人の同時編集を潰さない）
+      if (!root.Api.hasBackend()) return;
+      try {
+        const ym = `${y}-${String(m).padStart(2, '0')}`;
+        const res = await root.Api.updateStatus({ companyId, cityId, ym, date, status: next });
+        if (App._applyServerResponse(res)) App.renderAll();
+      } catch (e) {
+        App.toast('保存エラー（ローカルには保存済み）: ' + e.message, 'warn');
+      }
     },
 
-    confirmDate(date) {
+    async confirmDate(date) {
       const [y, m] = [+date.slice(0, 4), +date.slice(5, 7)];
       const a = App.ensureAssignment(App.currentCityId, y, m);
       // ハード制約チェック
@@ -429,12 +439,22 @@
       if (rank && rank.hardViolations && rank.hardViolations.length) {
         if (!confirm(`⚠️ ハード制約違反があります：\n${rank.hardViolations.join('\n')}\n本当に確定しますか？`)) return;
       }
+      // 1) ローカル楽観更新
       a.selectedDate = date;
       a.confirmed = true;
       App.state.lastUpdated = new Date().toISOString();
-      App.persist();
+      App.state.version = (App.state.version || 0) + 1;
+      App.saveLocal();
       App.toast(`${App.cities.find(c=>c.id===App.currentCityId)?.name} を ${date} で確定しました`, 'success');
       App.renderAll();
+      // 2) サーバーへ差分送信
+      if (!root.Api.hasBackend()) return;
+      try {
+        const res = await root.Api.confirmAssignment(App.currentCityId, y, m, date, null);
+        if (App._applyServerResponse(res)) App.renderAll();
+      } catch (e) {
+        App.toast('確定の保存エラー（ローカルには保存済み）: ' + e.message, 'warn');
+      }
     },
 
     async unconfirmDate() {
@@ -459,28 +479,46 @@
       App.renderAll();
     },
 
-    addCompany(company, deferPersist) {
+    async addCompany(company, deferPersist) {
+      // 1) ローカル楽観更新
       App.state.companies.push(company);
       App.state.lastUpdated = new Date().toISOString();
       App.state.version = (App.state.version || 0) + 1;
-      if (!deferPersist) {
-        root.Storage.setMe(company.id, company.name);
-        App.persist();
-        App.toast(`「${company.name}」を追加しました`, 'success');
-        App.renderAll();
+      if (deferPersist) return;
+      root.Storage.setMe(company.id, company.name);
+      App.saveLocal();
+      App.toast(`「${company.name}」を追加しました`, 'success');
+      App.renderAll();
+      // 2) サーバーへ差分送信（全上書きしない）
+      if (!root.Api.hasBackend()) return;
+      try {
+        const res = await root.Api.addCompany(company);
+        if (App._applyServerResponse(res)) App.renderAll();
+      } catch (e) {
+        App.toast('会社追加の保存エラー（ローカルには保存済み）: ' + e.message, 'warn');
       }
     },
 
-    removeCompany(companyId) {
+    async removeCompany(companyId) {
       if (!App.isAdminActive()) { App.toast('削除には管理者ログインが必要です', 'warn'); return; }
+      // 1) ローカル楽観更新（会社と関連 status を除去）
       App.state.companies = App.state.companies.filter(c => c.id !== companyId);
-      // 各assignmentのstatuses もクリーンアップ
       App.state.assignments.forEach(a => {
         a.statuses = (a.statuses || []).filter(s => s.companyId !== companyId);
       });
       App.state.lastUpdated = new Date().toISOString();
-      App.persist();
+      App.state.version = (App.state.version || 0) + 1;
+      App.saveLocal();
       App.renderAll();
+      // 2) サーバーへ差分送信（他ユーザーが同時に別の会社を編集していても潰さない）
+      if (!root.Api.hasBackend()) return;
+      try {
+        const pw = root.Storage.getAdminPw ? root.Storage.getAdminPw() : null;
+        const res = await root.Api.removeCompany(companyId, pw);
+        if (App._applyServerResponse(res)) App.renderAll();
+      } catch (e) {
+        App.toast('削除の保存エラー（ローカルには保存済み）: ' + e.message, 'warn');
+      }
     },
 
     // ------- ポーリング -------
@@ -530,15 +568,25 @@
           cities: App.cities,
           presets: App.presetCompanies,
           existingIds,
-          onSave: (companies) => {
-            // 複数社同時追加対応
+          onSave: async (companies) => {
+            // 複数社同時追加：ローカルに先に反映して即UIを更新、
+            // サーバーへは差分エンドポイントで1社ずつ送る（全上書きしない）
             for (const c of companies) App.addCompany(c, true);
             if (companies.length === 1) {
               root.Storage.setMe(companies[0].id, companies[0].name);
             }
-            App.persist();
+            App.saveLocal();
             App.toast(`${companies.length}社 を追加しました`, 'success');
             App.renderAll();
+            if (!root.Api.hasBackend()) return;
+            try {
+              const results = await Promise.all(companies.map(c => root.Api.addCompany(c)));
+              // 最後のレスポンスが最新版なので、それで反映を試みる
+              const last = results[results.length - 1];
+              if (App._applyServerResponse(last)) App.renderAll();
+            } catch (e) {
+              App.toast('会社追加の保存エラー（ローカルには保存済み）: ' + e.message, 'warn');
+            }
           },
         });
       });
