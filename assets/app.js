@@ -23,12 +23,13 @@
 
     async init() {
       // 1) マスタデータを読み込み
+      const cb = '?v=' + CLIENT_VERSION;
       const [citiesRes, rulesRes, ozRes, presetRes, otRes] = await Promise.all([
-        fetch('./assets/data/cities.json').then(r => r.json()),
-        fetch('./assets/data/rules.json').then(r => r.json()),
-        fetch('./assets/data/ozawa-range.json').then(r => r.json()),
-        fetch('./assets/data/companies-preset.json').then(r => r.json()).catch(() => ({ companies: [] })),
-        fetch('./assets/data/other-trainings.json').then(r => r.json()).catch(() => ({ days: {} })),
+        fetch('./assets/data/cities.json' + cb).then(r => r.json()),
+        fetch('./assets/data/rules.json' + cb).then(r => r.json()),
+        fetch('./assets/data/ozawa-range.json' + cb).then(r => r.json()),
+        fetch('./assets/data/companies-preset.json' + cb).then(r => r.json()).catch(() => ({ companies: [] })),
+        fetch('./assets/data/other-trainings.json' + cb).then(r => r.json()).catch(() => ({ days: {} })),
       ]);
       App.cities = citiesRes.cities;
       App.rules = rulesRes;
