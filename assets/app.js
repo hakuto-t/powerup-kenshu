@@ -2,8 +2,8 @@
 (function (root) {
   'use strict';
 
-  const CLIENT_VERSION = 'v5.4';   // 古いブラウザキャッシュを検出するためのクライアント版。JSを変更したら更新すること
-  const POLL_INTERVAL_MS = 5000;   // 5秒（GASクォータ削減、体感は許容範囲）
+  const CLIENT_VERSION = 'v5.5';   // 古いブラウザキャッシュを検出するためのクライアント版。JSを変更したら更新すること
+  const POLL_INTERVAL_MS = 3000;   // 3秒。本番運用でタップが消えて見える体感を抑えるため短めにする
   const ADMIN_SESSION_MS = 30 * 60 * 1000; // 管理者セッション有効期限 30分
   console.log('[powerup-kenshu] client version:', CLIENT_VERSION);
 
@@ -485,13 +485,12 @@
         const res = await root.Api.updateStatus({ companyId, cityId, ym, date, status: next });
         const r = App._applyServerResponse(res);
         if (r === 'applied') App.renderAll();
-        else if (r === 'rejected') {
-          // サーバーが拒否した場合、ローカルで先走った state を最新に差し戻す
-          await App._refetchState();
-        }
+        // rejected / skipped のときは強制 refetch しない。
+        // refetch で古い server state をぶつけると、直前の楽観更新が画面から消えて
+        // 直後のポーリングで戻る、という「消えて復活」のフリッカーが起きる。
+        // 同期はポーリング(3秒)に任せる。
       } catch (e) {
-        App.toast('保存エラー（ローカル保存は済・同期を取り直し）: ' + e.message, 'warn');
-        await App._refetchState();
+        App.toast('通信エラー（次のポーリングで同期します）: ' + e.message, 'warn');
       }
     },
 
@@ -519,10 +518,9 @@
         const res = await root.Api.confirmAssignment(App.currentCityId, y, m, date, null);
         const r = App._applyServerResponse(res);
         if (r === 'applied') App.renderAll();
-        else if (r === 'rejected') await App._refetchState();
+        // rejected 時も refetch しない。ポーリングで同期
       } catch (e) {
-        App.toast('確定の保存エラー（同期を取り直し）: ' + e.message, 'warn');
-        await App._refetchState();
+        App.toast('確定の通信エラー（次のポーリングで同期します）: ' + e.message, 'warn');
       }
     },
 
@@ -576,10 +574,9 @@
         const res = await root.Api.addCompany(company);
         const r = App._applyServerResponse(res);
         if (r === 'applied') App.renderAll();
-        else if (r === 'rejected') await App._refetchState();
+        // rejected 時も refetch しない。ポーリングで同期
       } catch (e) {
-        App.toast('会社追加の保存エラー（同期を取り直し）: ' + e.message, 'warn');
-        await App._refetchState();
+        App.toast('会社追加の通信エラー（次のポーリングで同期します）: ' + e.message, 'warn');
       }
     },
 
@@ -601,8 +598,7 @@
           }
           App._applyServerResponse(res);
         } catch (e) {
-          App.toast('削除の保存エラー（同期を取り直し）: ' + e.message, 'warn');
-          await App._refetchState();
+          App.toast('削除の通信エラー（次のポーリングで同期します）: ' + e.message, 'warn');
           return;
         }
       } else {
@@ -682,18 +678,16 @@
               const results = await Promise.allSettled(companies.map(c => root.Api.addCompany(c)));
               const rejected = results.some(r => r.status === 'rejected' || (r.value && r.value.ok === false));
               if (rejected) {
-                App.toast('一部の会社追加がサーバー側で失敗しました。最新状態を取り直します', 'warn');
-                await App._refetchState();
+                App.toast('一部の会社追加が失敗しました。次のポーリングで同期します', 'warn');
                 return;
               }
               // 最後のレスポンスが最新版なので、それで反映を試みる
               const last = results[results.length - 1].value;
               const r = App._applyServerResponse(last);
               if (r === 'applied') App.renderAll();
-              else if (r === 'rejected') await App._refetchState();
+              // rejected のときもポーリングで同期
             } catch (e) {
-              App.toast('会社追加の保存エラー（同期を取り直し）: ' + e.message, 'warn');
-              await App._refetchState();
+              App.toast('会社追加の通信エラー（次のポーリングで同期します）: ' + e.message, 'warn');
             }
           },
         });

@@ -43,7 +43,9 @@ function doPost(e) {
     const lock = LockService.getScriptLock();
     let data;
     try {
-      lock.waitLock(10000);
+      // 同時タップが多いと 10秒では waitLock タイムアウトする。拒否されたクライアントでは
+      // 楽観更新していた状態が剥がれ、タップが一瞬消えて見える問題の原因。30秒に延長。
+      lock.waitLock(30000);
       // 'save'（state全上書き）は v5.3 で廃止：古いJSを開いたままの端末が他ユーザーの
       // 更新を潰してしまう事故があったため、差分エンドポイントのみ受け付ける。
       // 古いJSを掴んだブラウザにはエラーを返して「ブラウザを更新してください」と促す。
@@ -145,10 +147,10 @@ function addCompanyHandler(body) {
   if (!c.name || typeof c.name !== 'string' || c.name.length > 200) throw new Error('不正な company.name');
   // 名前の重複チェック（軽量なスパム対策）
   if (state.companies.some(x => x.name === c.name)) {
-    return { ok: true, state, duplicated: true, reason: '同名の会社が既に登録されています' };
+    return liteOk(state, { duplicated: true, reason: '同名の会社が既に登録されています' });
   }
   if (state.companies.some(x => x.id === c.id)) {
-    return { ok: true, state, duplicated: true };
+    return liteOk(state, { duplicated: true });
   }
   // 規模制限（DoS対策）：会社数100まで
   if (state.companies.length >= 100) throw new Error('会社数の上限（100社）に達しました');
@@ -156,7 +158,7 @@ function addCompanyHandler(body) {
   state.lastUpdated = new Date().toISOString();
   state.version = (state.version || 0) + 1;
   saveState(year, state);
-  return { ok: true, state };
+  return liteOk(state);
 }
 
 function removeCompanyHandler(body) {
@@ -171,7 +173,7 @@ function removeCompanyHandler(body) {
   state.lastUpdated = new Date().toISOString();
   state.version = (state.version || 0) + 1;
   saveState(year, state);
-  return { ok: true, state };
+  return liteOk(state);
 }
 
 function updateStatusHandler(body) {
@@ -200,7 +202,7 @@ function updateStatusHandler(body) {
   state.lastUpdated = new Date().toISOString();
   state.version = (state.version || 0) + 1;
   saveState(year, state);
-  return { ok: true, state };
+  return liteOk(state);
 }
 
 function confirmHandler(body) {
@@ -228,7 +230,22 @@ function confirmHandler(body) {
   state.lastUpdated = new Date().toISOString();
   state.version = (state.version || 0) + 1;
   saveState(year, state);
-  return { ok: true, state };
+  return liteOk(state);
+}
+
+/**
+ * v5.5: mutation レスポンスから state 全体（100KB+）を落としてネットワーク転送を高速化する。
+ * クライアントは自分の楽観更新で UI は既に最新、他ユーザーの同時編集は
+ * ポーリング（3秒）で取得する運用に切り替えた。
+ */
+function liteOk(state, extra) {
+  const base = {
+    ok: true,
+    version: (state && state.version) || 0,
+    lastUpdated: (state && state.lastUpdated) || null,
+  };
+  if (extra) for (const k in extra) base[k] = extra[k];
+  return base;
 }
 
 /**
