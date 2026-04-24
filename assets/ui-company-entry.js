@@ -95,7 +95,7 @@
     },
 
     renderCompaniesTable(container, ctx) {
-      const { companies, cities, assignments, isAdmin, currentMonth, currentCityId } = ctx;
+      const { companies, cities, assignments, isAdmin, currentMonth, currentCityId, otherTrainings } = ctx;
 
       // 再描画の前に各都市グループの横スクロール位置を退避（描画後に復元する）
       const scrollMemo = new Map();
@@ -142,7 +142,7 @@
         const isCurrent = city.id === currentCityId;
         const confirmedCount = assignments.filter(a => a.cityId === city.id && a.confirmed).length;
         const body = members.length
-          ? renderCityTable(city, members, days, assignments, isAdmin)
+          ? renderCityTable(city, members, days, assignments, isAdmin, otherTrainings || {})
           : '<div class="sp-empty">この都市には、まだ会社が登録されていません。</div>';
         return `
           <details class="city-group ${isCurrent ? 'is-current' : ''}" data-city="${city.id}" ${isOpen ? 'open' : ''}>
@@ -233,7 +233,44 @@
   };
 
   // 都市グループ内のテーブル（会社は cityParticipation にその都市を含むもののみ）
-  function renderCityTable(city, members, days, assignments, isAdmin) {
+  // Phase 2: 日別 OK 数をランキングし上位3日に heat-1/2/3 クラスを付与
+  // Phase 3: 日付ヘッダに他研修・祝日バッジを追加
+  function renderCityTable(city, members, days, assignments, isAdmin, otherTrainings) {
+    // 各日付の OK 数を計算してランキング（Scheduler.countParticipation を再利用するとグローバル companies が必要なので、ここは自前で members 範囲内で集計）
+    const okCounts = days.map(d => {
+      let ok = 0;
+      for (const m of members) {
+        if (Scheduler.getStatusFor(m.id, city.id, d.date, assignments) === 'OK') ok++;
+      }
+      return { date: d.date, ok };
+    });
+    // 上位3種類の OK 数を抽出（同率は同ランク）
+    const distinctSorted = Array.from(new Set(okCounts.map(x => x.ok))).filter(n => n > 0).sort((a, b) => b - a);
+    const heatOf = (date) => {
+      const ok = okCounts.find(x => x.date === date).ok;
+      if (ok === 0) return '';
+      const idx = distinctSorted.indexOf(ok);
+      if (idx === 0) return 'heat-1';
+      if (idx === 1) return 'heat-2';
+      if (idx === 2) return 'heat-3';
+      return '';
+    };
+
+    // 他研修・祝日バッジ
+    const badgeOf = (date) => {
+      const ot = (otherTrainings && otherTrainings[date]) || {};
+      const parts = [];
+      if (ot.holiday) {
+        parts.push(`<span class="th-badge holiday" title="${escapeAttr(ot.holiday)}">祝</span>`);
+      }
+      const progs = ot.otherPrograms || [];
+      if (progs.length) {
+        const title = progs.map(p => p.name).join(' / ');
+        parts.push(`<span class="th-badge other" title="${escapeAttr(title)}">他</span>`);
+      }
+      return parts.join('');
+    };
+
     return `
       <table>
         <thead>
@@ -241,7 +278,9 @@
             <th class="col-company">会社</th>
             ${days.map(d => {
               const wd = '日月火水木金土'[new Date(d.date + 'T00:00:00+09:00').getDay()];
-              return `<th><small>${+d.date.slice(5,7)}/${+d.date.slice(8,10)}<br>(${wd})</small></th>`;
+              const heat = heatOf(d.date);
+              const badge = badgeOf(d.date);
+              return `<th class="${heat}"><small>${+d.date.slice(5,7)}/${+d.date.slice(8,10)}<br>(${wd})</small>${badge ? `<div class="th-badges">${badge}</div>` : ''}</th>`;
             }).join('')}
             ${isAdmin ? '<th></th>' : ''}
           </tr>
@@ -252,7 +291,8 @@
               <td class="col-company">${escapeHtml(c.name)}</td>
               ${days.map(d => {
                 const s = Scheduler.getStatusFor(c.id, city.id, d.date, assignments);
-                return `<td class="status-picker-cell">${renderStatusPicker(s, { companyId: c.id, cityId: city.id, date: d.date })}</td>`;
+                const heat = heatOf(d.date);
+                return `<td class="status-picker-cell ${heat}">${renderStatusPicker(s, { companyId: c.id, cityId: city.id, date: d.date })}</td>`;
               }).join('')}
               ${isAdmin ? `<td class="row-controls"><button class="btn-remove-company" data-action="remove-company" data-company="${c.id}" data-name="${escapeAttr(c.name)}" title="削除"><span class="btn-remove-icon">🗑</span><span class="btn-remove-label">削除</span></button></td>` : ''}
             </tr>`).join('')}

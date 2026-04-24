@@ -2,7 +2,7 @@
 (function (root) {
   'use strict';
 
-  const CLIENT_VERSION = 'v5.5';   // 古いブラウザキャッシュを検出するためのクライアント版。JSを変更したら更新すること
+  const CLIENT_VERSION = 'v5.6';   // 古いブラウザキャッシュを検出するためのクライアント版。JSを変更したら更新すること
   const POLL_INTERVAL_MS = 3000;   // 3秒。本番運用でタップが消えて見える体感を抑えるため短めにする
   const ADMIN_SESSION_MS = 30 * 60 * 1000; // 管理者セッション有効期限 30分
   console.log('[powerup-kenshu] client version:', CLIENT_VERSION);
@@ -329,6 +329,7 @@
         isAdmin: root.Storage.isAdmin(),
         currentMonth: monthData,
         currentCityId: App.currentCityId,
+        otherTrainings: App.otherTrainings, // Phase 3: 他研修・祝日バッジ用
         onStatusToggle: (companyId, cityId, date, next) => App.updateStatus(companyId, cityId, date, next),
         onRemove: (companyId) => App.removeCompany(companyId),
       });
@@ -362,19 +363,33 @@
 
     renderSidePanel() {
       const panel = document.getElementById('side-panel');
-      if (!App.selectedDate) {
-        UISidePanel.renderEmpty(panel);
-        return;
-      }
       // renderAll() で計算したキャッシュを再利用（重複計算回避）
       const cached = App._computed || {};
       const monthData = cached.monthData || App.getCurrentMonthData();
       const ownAssign = cached.ownAssign;
       const ranked = cached.ranked || [];
       const suggestions = cached.suggestions || [];
+      const city = App.cities.find(c => c.id === App.currentCityId);
+      // Phase 4: 日付未選択時は候補日ランキングを常時表示
+      if (!App.selectedDate) {
+        const [y, m] = App.currentMonthKey.split('-').map(Number);
+        UISidePanel.renderSummary(panel, {
+          cityName: city ? city.name : App.currentCityId,
+          currentMonthLabel: `${y}年${m}月`,
+          ranked,
+          suggestions,
+          otherConfirmedByDate: cached.otherConfirmedByDate || {},
+          monthData,
+          onCellClick: (iso) => {
+            App.selectedDate = iso;
+            App.renderSidePanel();
+            App.renderCalendarOnly();
+          },
+        });
+        return;
+      }
       const rank = ranked.find(r => r.date === App.selectedDate);
       const otherConfirmed = (cached.otherConfirmedByDate || {})[App.selectedDate];
-      const city = App.cities.find(c => c.id === App.currentCityId);
 
       UISidePanel.render(panel, {
         date: App.selectedDate,

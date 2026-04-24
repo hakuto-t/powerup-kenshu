@@ -412,6 +412,73 @@ main .btn-primary:hover { background: var(--pri2); }
 }
 .city-group-body .row-controls button:hover { color: var(--r); }
 
+/* Phase 4: サイドパネル常時ランキング */
+.sp-summary-head { margin-bottom: 10px; }
+.sp-summary-title { font-weight: 700; font-size: 1.0rem; color: var(--tx); margin-bottom: 4px; }
+.sp-summary-sub { font-size: 0.75rem; color: var(--tx3); }
+.sp-summary-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.sp-summary-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.sp-summary-row:hover { border-color: var(--pri); background: #f0f9ff; }
+.sp-summary-row.rank-1 { background: #dcfce7; border-color: #86efac; }
+.sp-summary-row.rank-1:hover { background: #bbf7d0; }
+.sp-summary-row.rank-2 { background: #ecfdf5; }
+.sp-summary-row.has-violation { border-color: #fca5a5; }
+.sp-summary-row.other-confirmed { opacity: 0.6; }
+.sp-summary-rank { font-size: 0.8rem; font-weight: 700; color: var(--pri); min-width: 28px; }
+.sp-summary-main { min-width: 0; }
+.sp-summary-date { font-weight: 700; color: var(--tx); margin-bottom: 2px; }
+.sp-summary-count { display: flex; gap: 8px; font-size: 0.8rem; }
+.sp-summary-count .ok { color: #15803d; font-weight: 700; }
+.sp-summary-count .maybe { color: #854d0e; }
+.sp-summary-count .ng { color: #b91c1c; }
+.sp-summary-count .unk { color: var(--tx3); }
+.sp-summary-score { font-size: 0.85rem; color: var(--pri); font-weight: 600; white-space: nowrap; }
+.sp-summary-tag {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+.sp-summary-tag.violation { background: #fee2e2; color: #991b1b; }
+.sp-summary-tag.other { background: #fef3c7; color: #854d0e; }
+.sp-summary-tag.ozawa { background: #ede9fe; color: #5b21b6; }
+.sp-summary-tag.conf  { background: #e0e7ff; color: #3730a3; }
+
+/* 参加会社一覧のヒートマップ（OK数ランキング上位3日） */
+.city-group-body th.heat-1, .city-group-body td.heat-1 { background: #86efac; }   /* 最多（濃い緑） */
+.city-group-body th.heat-2, .city-group-body td.heat-2 { background: #bbf7d0; }   /* 2番目 */
+.city-group-body th.heat-3, .city-group-body td.heat-3 { background: #dcfce7; }   /* 3番目（薄い緑） */
+.city-group-body th.heat-1, .city-group-body th.heat-2, .city-group-body th.heat-3 { color: #064e3b; font-weight: 700; }
+/* col-company の sticky を heat 背景に勝たせる */
+.city-group-body td.col-company { z-index: 2; }
+
+/* 日付ヘッダの他研修・祝日バッジ */
+.th-badges { display: flex; justify-content: center; gap: 2px; margin-top: 2px; }
+.th-badge {
+  display: inline-block;
+  font-size: 9px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-weight: 700;
+  cursor: help;
+}
+.th-badge.holiday { background: #fecaca; color: #991b1b; }
+.th-badge.other   { background: #fde68a; color: #854d0e; }
+
 /* 会社削除ボタン（2段階クリック式） */
 .btn-remove-company {
   display: inline-flex; align-items: center; gap: 4px;

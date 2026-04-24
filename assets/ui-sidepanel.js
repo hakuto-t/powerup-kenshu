@@ -7,6 +7,70 @@
       el.innerHTML = '<div class="sp-empty"><p>候補日セルをクリックすると、参加状況・譲歩提案・小澤希望達成度が表示されます。</p></div>';
     },
 
+    // Phase 4: 未選択時の常時サマリー。月内の候補日トップ5をランキング表示。
+    // ctx: { cityName, ranked, suggestions, otherConfirmedByDate, monthData, onCellClick, currentMonthLabel }
+    renderSummary(el, ctx) {
+      const { cityName, ranked, suggestions, otherConfirmedByDate, monthData, currentMonthLabel } = ctx;
+      if (!ranked || !ranked.length) {
+        el.innerHTML = `<div class="sp-empty">
+          <p><strong>${escapeHtml(cityName || '')}</strong> ${escapeHtml(currentMonthLabel || '')}の候補日はありません。</p>
+          <p style="color:var(--tx3);font-size:0.85rem;margin-top:8px">月を切り替えるか、候補日セルをクリックして詳細を確認してください。</p>
+        </div>`;
+        return;
+      }
+      const top = ranked.slice(0, 5);
+      const parts = [];
+      parts.push(`<div class="sp-summary-head">
+        <div class="sp-summary-title">📅 ${escapeHtml(cityName || '')} ${escapeHtml(currentMonthLabel || '')} の候補日ランキング</div>
+        <div class="sp-summary-sub">クリックで詳細表示。○×▽入力後の最有力日が上から並びます。</div>
+      </div>`);
+      parts.push(`<div class="sp-summary-list">`);
+      top.forEach((r, i) => {
+        const rank = i + 1;
+        const wd = '日月火水木金土'[new Date(r.date + 'T00:00:00+09:00').getDay()];
+        const hasViolation = r.hardViolations && r.hardViolations.length > 0;
+        const other = (r.otherPrograms || []).length;
+        const ozawaHits = (r.softHits || []).length;
+        const conf = otherConfirmedByDate && otherConfirmedByDate[r.date];
+        const p = r.participation;
+        const classes = ['sp-summary-row'];
+        classes.push('rank-' + rank);
+        if (hasViolation) classes.push('has-violation');
+        if (conf) classes.push('other-confirmed');
+        parts.push(`<div class="${classes.join(' ')}" data-date="${r.date}">
+          <div class="sp-summary-rank">${rank}位</div>
+          <div class="sp-summary-main">
+            <div class="sp-summary-date">${+r.date.slice(5,7)}/${+r.date.slice(8,10)}(${wd})
+              ${hasViolation ? '<span class="sp-summary-tag violation">⚠ハード違反</span>' : ''}
+              ${other ? '<span class="sp-summary-tag other">他研修' + other + '</span>' : ''}
+              ${ozawaHits ? '<span class="sp-summary-tag ozawa">小澤+' + ozawaHits + '</span>' : ''}
+              ${conf ? '<span class="sp-summary-tag conf">🔒他都市確定</span>' : ''}
+            </div>
+            ${p ? `<div class="sp-summary-count">
+              <span class="ok">○${p.ok}</span>
+              <span class="maybe">△${p.maybe}</span>
+              <span class="ng">×${p.ng}</span>
+              <span class="unk">?${p.unknown}</span>
+            </div>` : ''}
+          </div>
+          <div class="sp-summary-score">${formatScore(r.totalScore)}</div>
+        </div>`);
+      });
+      parts.push(`</div>`);
+      // 最小譲歩レコメンド
+      if (suggestions && suggestions.length) {
+        parts.push(`<div class="sp-section"><h4>★ 最小譲歩レコメンド</h4>`);
+        for (const s of suggestions) {
+          parts.push(`<div class="sp-callout"><strong>${escapeHtml(s.message)}</strong></div>`);
+        }
+        parts.push(`</div>`);
+      }
+      el.innerHTML = parts.join('');
+      el.querySelectorAll('.sp-summary-row').forEach(row => {
+        row.addEventListener('click', () => ctx.onCellClick && ctx.onCellClick(row.dataset.date));
+      });
+    },
+
     render(el, ctx) {
       // ctx: { date, rank, monthData, cityId, cityName, companies, assignments, suggestions, onStatusChange, onConfirm, onUnconfirm, isConfirmed, isAdmin }
       const { date, rank, cityName, companies, assignments, suggestions, isConfirmed, isAdmin, otherCityInfo } = ctx;

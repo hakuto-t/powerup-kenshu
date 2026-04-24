@@ -55,6 +55,7 @@ function doPost(e) {
       else if (action === 'confirm') data = confirmHandler(body);
       else if (action === 'removeCompany') data = removeCompanyHandler(body);
       else if (action === 'setPassword') data = setPasswordHandler(body);
+      else if (action === 'maintenance') data = maintenanceHandler(body);
       else throw new Error('unknown action: ' + action);
     } finally {
       try { lock.releaseLock(); } catch (e) {}
@@ -329,4 +330,62 @@ function setAdminPassword() {
   PropertiesService.getScriptProperties().setProperty('ADMIN_PASSWORD_HASH', sha256Hex(pw));
   PropertiesService.getScriptProperties().deleteProperty('ADMIN_PASSWORD');
   Logger.log('管理者パスワードを更新しました');
+}
+
+/**
+ * 管理者権限付きのメンテナンス呼び出し。
+ * body: { action: 'maintenance', op: '<operation>', adminPw: '...' }
+ * op: 'cleanupL2Duplicates'
+ */
+function maintenanceHandler(body) {
+  if (!verifyAdmin(body.adminPw)) throw new Error('admin auth failed');
+  const op = String(body.op || '');
+  if (op === 'cleanupL2Duplicates') return cleanupL2Duplicates();
+  throw new Error('unknown maintenance op: ' + op);
+}
+
+/**
+ * 【一回限り実行用】浜松L2 から 白都・悠資 を切り離す（L1 と同じ判断になるため重複を整理）。
+ *   1. companies[白都,悠資] の cityParticipation から HL2 を削除
+ *   2. HL2 assignments 配下の 白都・悠資 statuses をクリーンアップ（オーファン除去）
+ *   3. 梅原（HL2+SZ）は変更しない
+ * 実行後、フロント側は次回ロードで最新 state に追従する。
+ */
+function cleanupL2Duplicates() {
+  const state = loadState(2026);
+  const targets = state.companies
+    .filter(function(c) {
+      return (c.name === '白都' || c.name === '悠資') && (c.cityParticipation || []).indexOf('HL2') >= 0;
+    })
+    .map(function(c) { return { id: c.id, name: c.name }; });
+
+  if (targets.length === 0) {
+    Logger.log('cleanupL2Duplicates: 対象なし（既にクリーンアップ済み）');
+    return { ok: true, removed: 0 };
+  }
+  const targetIds = targets.map(function(t) { return t.id; });
+
+  // 1) cityParticipation から HL2 を外す
+  state.companies.forEach(function(c) {
+    if (targetIds.indexOf(c.id) >= 0) {
+      c.cityParticipation = (c.cityParticipation || []).filter(function(x) { return x !== 'HL2'; });
+    }
+  });
+
+  // 2) HL2 assignments のオーファン statuses を除去
+  var orphanRemoved = 0;
+  state.assignments.forEach(function(a) {
+    if (a.cityId === 'HL2') {
+      var before = (a.statuses || []).length;
+      a.statuses = (a.statuses || []).filter(function(s) { return targetIds.indexOf(s.companyId) < 0; });
+      orphanRemoved += (before - a.statuses.length);
+    }
+  });
+
+  state.version = (state.version || 0) + 1;
+  state.lastUpdated = new Date().toISOString();
+  saveState(2026, state);
+
+  Logger.log('cleanupL2Duplicates done. companies=' + targets.map(function(t){return t.name;}).join(',') + ' orphanStatusesRemoved=' + orphanRemoved);
+  return { ok: true, removed: targets.length, orphanStatusesRemoved: orphanRemoved, newVersion: state.version };
 }
