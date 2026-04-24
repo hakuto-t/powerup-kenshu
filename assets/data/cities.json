@@ -35,7 +35,15 @@
       "fullName": "静岡",
       "color": "#e8b931",
       "geoOrder": 3,
-      "region": "shizuoka"
+      "region": "shizuoka",
+      "compatibleOtherPrograms": [
+        "栃木PBC", "顧問（栃木）",
+        "神奈川PBC", "顧問（神奈川）",
+        "浜松PBC", "顧問（浜松）",
+        "浜松トレ", "浜松補助トレ",
+        "静岡補助トレ",
+        "東京プログラム"
+      ]
     },
     {
       "id": "YH",
@@ -43,7 +51,15 @@
       "fullName": "横浜",
       "color": "#7c3aed",
       "geoOrder": 4,
-      "region": "kanagawa"
+      "region": "kanagawa",
+      "compatibleOtherPrograms": [
+        "栃木PBC", "顧問（栃木）",
+        "浜松PBC", "顧問（浜松）",
+        "静岡PBC", "顧問（静岡）",
+        "浜松トレ", "浜松補助トレ",
+        "静岡補助トレ",
+        "東京プログラム"
+      ]
     },
     {
       "id": "UT",
