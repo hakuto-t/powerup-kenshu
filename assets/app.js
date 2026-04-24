@@ -2,8 +2,10 @@
 (function (root) {
   'use strict';
 
+  const CLIENT_VERSION = 'v5.3';   // 古いブラウザキャッシュを検出するためのクライアント版。JSを変更したら更新すること
   const POLL_INTERVAL_MS = 5000;   // 5秒（GASクォータ削減、体感は許容範囲）
   const ADMIN_SESSION_MS = 30 * 60 * 1000; // 管理者セッション有効期限 30分
+  console.log('[powerup-kenshu] client version:', CLIENT_VERSION);
 
   const App = {
     // 状態
@@ -100,7 +102,13 @@
     // レスポンスが順不同で返っても古い state で新しいローカル state を潰さないよう、
     // 受け取った state の version が手元より前進しているときだけ採用する。
     _applyServerResponse(res) {
-      if (!res || !res.state) return false;
+      if (!res) return false;
+      // エラー応答（ok:false）はサーバー側でリジェクトされている。画面に出す
+      if (res.ok === false) {
+        App.toast('保存できませんでした：' + (res.error || 'サーバーエラー。ブラウザを更新してください'), 'error');
+        return false;
+      }
+      if (!res.state) return false;
       const localV = App.state.version || 0;
       const serverV = res.state.version || 0;
       if (serverV > localV) {
@@ -463,19 +471,31 @@
       const a = App.getAssignment(App.currentCityId, y, m);
       if (!a) return;
       if (!confirm('確定を解除して仮置きに戻しますか？')) return;
-      a.confirmed = false;
-      App.state.lastUpdated = new Date().toISOString();
-      App.state.version = (App.state.version || 0) + 1;
-      // バックエンドに管理者パスワード付きで送る
+      // サーバー成功を確認してからローカル更新する（旧コードは先にローカルを変えて、
+      // その後サーバー失敗してもエラーが画面に出ない→リロードで戻ってしまう事象があった）
       if (root.Api.hasBackend()) {
         const pw = root.Storage.getAdminPw ? root.Storage.getAdminPw() : null;
+        if (!pw) { App.toast('管理者パスワードが見つかりません。再ログインしてください', 'error'); return; }
         try {
-          await root.Api.unconfirmAssignment(App.currentCityId, y, m, pw);
+          const res = await root.Api.unconfirmAssignment(App.currentCityId, y, m, pw);
+          if (!res || res.ok === false) {
+            App.toast('解除に失敗しました：' + ((res && res.error) || 'サーバーエラー'), 'error');
+            return;
+          }
+          App._applyServerResponse(res);
         } catch (e) {
           App.toast('サーバーに解除できませんでした: ' + e.message, 'error');
+          return;
         }
+      } else {
+        // オフライン動作：ローカルのみ更新
+        a.confirmed = false;
+        a.selectedDate = null;
+        App.state.lastUpdated = new Date().toISOString();
+        App.state.version = (App.state.version || 0) + 1;
+        App.saveLocal();
       }
-      App.saveLocal();
+      App.toast('確定を解除して仮置きに戻しました', 'success');
       App.renderAll();
     },
 

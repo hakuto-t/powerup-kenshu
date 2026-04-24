@@ -43,7 +43,10 @@ function doPost(e) {
     let data;
     try {
       lock.waitLock(10000);
-      if (action === 'save') data = saveHandler(body);
+      // 'save'（state全上書き）は v5.3 で廃止：古いJSを開いたままの端末が他ユーザーの
+      // 更新を潰してしまう事故があったため、差分エンドポイントのみ受け付ける。
+      // 古いJSを掴んだブラウザにはエラーを返して「ブラウザを更新してください」と促す。
+      if (action === 'save') throw new Error('このバージョンは古いため保存できません。ブラウザを強制リロード（Ctrl+F5）してください。');
       else if (action === 'addCompany') data = addCompanyHandler(body);
       else if (action === 'updateStatus') data = updateStatusHandler(body);
       else if (action === 'confirm') data = confirmHandler(body);
@@ -68,6 +71,7 @@ function safeErrMsg(err) {
   if (/admin auth|admin authentication|認証/i.test(msg)) return msg;
   if (/不正|invalid|必要|required|範囲|range/i.test(msg)) return msg;
   if (/unknown action/i.test(msg)) return msg;
+  if (/ブラウザを.*リロード|古いため|古いJS/i.test(msg)) return msg;
   return 'サーバーエラーが発生しました';
 }
 
