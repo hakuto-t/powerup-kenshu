@@ -95,8 +95,15 @@
         try {
           const res = await root.Api.saveState(App.state);
           if (res && res.state) {
-            App.state = res.state;
-            App.saveLocal();
+            // 連続で ○×▽ を押すとレスポンスが順不同で返り、古い state で上書きして
+            // 直前のクリックが消える race condition が起きるため、レスポンスの version が
+            // 手元より前進しているときだけ反映する。後退・同値の場合はスキップ。
+            const localV = App.state.version || 0;
+            const serverV = res.state.version || 0;
+            if (serverV > localV) {
+              App.state = res.state;
+              App.saveLocal();
+            }
           }
         } catch (e) {
           App.toast('保存エラー（ローカルには保存済み）: ' + e.message, 'warn');
